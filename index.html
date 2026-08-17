@@ -105,7 +105,7 @@
           <div class="slice" tabindex="0">
             <div
               class="slice-bg"
-              style="background-image: url('https://picsum.photos/seed/kinetic-type/1200/1600')"
+              style="background-image: url('/images/adam-background.jpg')"
             ></div>
             <span class="slice-label">Type in Motion</span>
             <div class="slice-content">
@@ -177,6 +177,14 @@
           Say hello.<br />
           <em>Build something.</em>
         </h2>
+        <div class="footer-actions">
+          <button class="btn btn-solid" type="button" data-open="message-modal">
+            Send me a message
+          </button>
+          <button class="btn btn-ghost" type="button" data-open="giveaway-modal">
+            Enter my giveaway
+          </button>
+        </div>
         <div class="footer-links">
           <div class="footer-social">
             <a href="mailto:Adam.M.Roch13@gmail.com">Email</a>
@@ -187,6 +195,53 @@
         </div>
       </footer>
     </main>
+
+    <div class="modal" id="message-modal" role="dialog" aria-modal="true" aria-labelledby="message-modal-title" hidden>
+      <div class="modal-backdrop" data-close></div>
+      <div class="modal-panel">
+        <button class="modal-close" type="button" data-close aria-label="Close dialog">&times;</button>
+        <h2 class="modal-title" id="message-modal-title">Send me a message</h2>
+        <p class="modal-sub">Lands straight in my inbox. I read everything.</p>
+        <form class="modal-form" data-form="message" novalidate>
+          <label class="field">
+            <span>Your email *</span>
+            <input type="email" name="email" required placeholder="you@example.com" />
+          </label>
+          <label class="field">
+            <span>Message *</span>
+            <textarea name="message" rows="5" required placeholder="What's on your mind?"></textarea>
+          </label>
+          <button class="btn btn-solid" type="submit">Send</button>
+          <p class="form-status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="giveaway-modal" role="dialog" aria-modal="true" aria-labelledby="giveaway-modal-title" hidden>
+      <div class="modal-backdrop" data-close></div>
+      <div class="modal-panel">
+        <button class="modal-close" type="button" data-close aria-label="Close dialog">&times;</button>
+        <h2 class="modal-title" id="giveaway-modal-title">Enter the giveaway</h2>
+        <p class="modal-sub">Leave your email — I'll draw a winner and reach out directly.</p>
+        <form class="modal-form" data-form="giveaway" novalidate>
+          <label class="field">
+            <span>Your email *</span>
+            <input type="email" name="email" required placeholder="you@example.com" />
+          </label>
+          <label class="field">
+            <span>Name (optional)</span>
+            <input type="text" name="name" autocomplete="name" placeholder="What should I call you?" />
+          </label>
+          <label class="field">
+            <span>Phone (optional)</span>
+            <input type="tel" name="phone" autocomplete="tel" placeholder="If you'd rather get a call" />
+          </label>
+          <button class="btn btn-solid" type="submit">Enter</button>
+          <p class="modal-fine">One entry per email. These details are only used to contact the winner.</p>
+          <p class="form-status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

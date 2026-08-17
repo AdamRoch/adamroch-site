@@ -1,6 +1,7 @@
 import './style.css';
 import { initWebGL } from './webgl';
 import { initAnimations } from './animations';
+import { initModals } from './modal';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -11,3 +12,4 @@ initAnimations({
   reduced,
   onScroll: (progress) => gl?.setScroll(progress),
 });
+initModals();
