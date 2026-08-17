@@ -95,13 +95,18 @@ export function initAnimations({ reduced, onScroll }: AnimOptions): void {
         scrub: true,
       },
     });
-    ScrollTrigger.create({
-      trigger: '.manifesto-pin',
-      start: 'top 24%',
-      endTrigger: manifestoText,
-      end: 'bottom 62%',
-      pin: true,
-      pinSpacing: false,
+    // pinning is desktop-only — on mobile the single-column layout
+    // would let the fixed heading float over the paragraph
+    const mm = gsap.matchMedia();
+    mm.add('(min-width: 861px)', () => {
+      ScrollTrigger.create({
+        trigger: '.manifesto-pin',
+        start: 'top 24%',
+        endTrigger: manifestoText,
+        end: 'bottom 62%',
+        pin: true,
+        pinSpacing: false,
+      });
     });
   }
 
