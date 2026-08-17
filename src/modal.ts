@@ -4,8 +4,8 @@ const CONTACT_EMAIL = 'Adam.M.Roch13@gmail.com';
 // While an endpoint is empty, that form falls back to opening the visitor's
 // email client with everything pre-filled.
 const ENDPOINTS: Record<string, string> = {
-  message: '',
-  giveaway: '',
+  message: 'https://formspree.io/f/mppaypyb',
+  giveaway: 'https://formspree.io/f/mvkpwkwn',
 };
 
 let lastFocus: HTMLElement | null = null;
