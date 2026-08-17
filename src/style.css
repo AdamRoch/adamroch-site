@@ -474,6 +474,15 @@ footer {
   padding: 0.4rem 0.9rem;
 }
 
+a.slice-link {
+  transition: background 0.35s ease, color 0.35s ease;
+}
+
+a.slice-link:hover {
+  background: var(--ember);
+  color: var(--bg);
+}
+
 /* ————— manifesto: pin + scrub ————— */
 
 #manifesto .manifesto-grid {

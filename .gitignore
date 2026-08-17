@@ -5,3 +5,6 @@ dist
 
 # original full-res assets stay local; web-optimized copies live in public/images
 /images/
+
+# design reference recordings stay local
+/videos/
