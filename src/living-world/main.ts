@@ -505,7 +505,14 @@ if (!reduced) {
       ease: 'elastic.out(1, 0.65)',
     });
   });
-  gsap.from('.lw-nav', { opacity: 0, y: -36, duration: 1.0, ease: 'power3.out', delay: 0.35 });
+  gsap.from('.lw-nav', {
+    opacity: 0,
+    y: -36,
+    duration: 1.0,
+    ease: 'power3.out',
+    delay: 0.35,
+    clearProps: 'opacity,transform',
+  });
   gsap.from('[data-lw-ui]:not(.lw-nav)', {
     opacity: 0,
     y: 26,
@@ -513,6 +520,7 @@ if (!reduced) {
     stagger: 0.09,
     ease: 'power3.out',
     delay: 0.55,
+    clearProps: 'opacity,transform',
   });
 }
 
