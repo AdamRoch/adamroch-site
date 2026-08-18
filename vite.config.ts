@@ -7,6 +7,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         'lab/living-world': fileURLToPath(new URL('./lab/living-world/index.html', import.meta.url)),
+        'lab/event-horizon': fileURLToPath(new URL('./lab/event-horizon/index.html', import.meta.url)),
       },
     },
   },

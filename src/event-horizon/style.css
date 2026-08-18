@@ -1,0 +1,162 @@
+/* ————— Exhibit 001 — Event Horizon ————— */
+
+:root {
+  --bg: #0b0b0d;
+  --ink: #eae6dc;
+  --ember: #ff4d00;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+#eh-gl {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  animation: eh-fade 2s ease-out both;
+}
+
+.grain {
+  position: fixed;
+  inset: -100%;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 7s steps(8) infinite;
+}
+
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  12.5% { transform: translate(-2%, 3%); }
+  25% { transform: translate(3%, -1%); }
+  37.5% { transform: translate(-1%, -3%); }
+  50% { transform: translate(2%, 2%); }
+  62.5% { transform: translate(-3%, 1%); }
+  75% { transform: translate(1%, 3%); }
+  87.5% { transform: translate(3%, -2%); }
+}
+
+/* ————— HUD chrome ————— */
+
+.hud {
+  position: fixed;
+  z-index: 20;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(234, 230, 220, 0.55);
+  user-select: none;
+  animation: eh-rise 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hud b {
+  color: rgba(234, 230, 220, 0.9);
+  font-weight: 500;
+}
+
+.hud .ember,
+.headline .ember {
+  color: var(--ember);
+}
+
+.hud-tl { top: 28px; left: 32px; }
+.hud-tr { top: 28px; right: 32px; text-align: right; animation-delay: 0.1s; }
+.hud-bl { bottom: 28px; left: 32px; animation-delay: 0.2s; }
+.hud-br { bottom: 28px; right: 32px; text-align: right; animation-delay: 0.3s; }
+
+a.hud {
+  text-decoration: none;
+  color: rgba(234, 230, 220, 0.55);
+  transition: color 0.3s ease;
+}
+
+a.hud:hover {
+  color: var(--ember);
+}
+
+/* ————— headline ————— */
+
+.headline {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: eh-rise 1.8s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+}
+
+.headline h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(26px, 4.2vw, 46px);
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  margin: 0;
+  transform: translateY(-0.35em);
+  text-shadow:
+    0 0 24px rgba(0, 0, 0, 0.9),
+    0 0 60px rgba(0, 0, 0, 0.8);
+}
+
+.headline p {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(234, 230, 220, 0.5);
+  margin: 0.4em 0 0;
+  transform: translateY(0.9em);
+}
+
+/* ————— entrance ————— */
+
+@keyframes eh-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes eh-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ————— small screens ————— */
+
+@media (max-width: 640px) {
+  .hud-bl,
+  .hud-br {
+    display: none;
+  }
+  .hud-tl { top: 20px; left: 20px; }
+  .hud-tr { top: 20px; right: 20px; }
+  .headline p {
+    font-size: 8px;
+    letter-spacing: 0.22em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain,
+  #eh-gl,
+  .hud,
+  .headline {
+    animation: none;
+  }
+}
