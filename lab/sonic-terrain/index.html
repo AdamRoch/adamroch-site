@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Exhibit 002 — a sonic terrain. A live FFT spectrum rendered as a wireframe landscape: generative drone, microphone input, and a playable surface. By Adam Roch." />
+    <meta name="theme-color" content="#0b0b0d" />
+    <title>Sonic Terrain — Sound &amp; Code 002 — Adam Roch</title>
+  </head>
+  <body>
+    <canvas id="st-gl"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <a class="hud hud-tl" href="/" aria-label="Back to adamroch.com"><b>ADAM</b> — THE LAB</a>
+    <div class="hud hud-tr">[ EXHIBIT <span class="ember">002</span> ]</div>
+    <div class="hud hud-bl"><span id="st-status">ANALYSER 2048-FFT</span></div>
+    <div class="hud hud-br">THE BROWSER AS AN <span class="ember">INSTRUMENT</span></div>
+
+    <header class="headline">
+      <h1>Sound, made visible.</h1>
+      <p>SOUND <span class="ember">&amp;</span> CODE — EXHIBIT TWO</p>
+    </header>
+
+    <button class="sound-pill" id="st-pill" type="button">[ SOUND <span id="st-pill-state">OFF</span> ]</button>
+    <p class="hint" id="st-hint">DRAG THE TERRAIN — IT PLAYS BACK</p>
+
+    <script type="module" src="/src/sonic-terrain/main.ts"></script>
+  </body>
+</html>
