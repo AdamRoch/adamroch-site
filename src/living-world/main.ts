@@ -6,7 +6,7 @@ const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ————— seeded procedural moss texture ————— */
 
-function makeMossCanvas(seed: number, size = 512): HTMLCanvasElement {
+function makeMossCanvas(seed: number, size = 2048): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -18,20 +18,23 @@ function makeMossCanvas(seed: number, size = 512): HTMLCanvasElement {
     return s / 2147483647;
   };
 
+  // detail scales with resolution so the look stays identical at any size
+  const k = size / 512;
+
   ctx.fillStyle = '#31461f';
   ctx.fillRect(0, 0, size, size);
   const accents = ['#3c5426', '#49622d', '#587338', '#273a18', '#6b8a44', '#82a052'];
-  for (let i = 0; i < 3200; i++) {
+  for (let i = 0; i < 3200 * k * k; i++) {
     ctx.globalAlpha = 0.22 + rand() * 0.5;
     ctx.fillStyle = accents[Math.floor(rand() * accents.length)];
     ctx.beginPath();
-    ctx.arc(rand() * size, rand() * size, 0.8 + rand() * 6.5, 0, Math.PI * 2);
+    ctx.arc(rand() * size, rand() * size, (0.8 + rand() * 6.5) * k, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 0.75;
-  for (let i = 0; i < 320; i++) {
+  for (let i = 0; i < 320 * k * k; i++) {
     ctx.fillStyle = rand() > 0.5 ? '#93b165' : '#b3c984';
-    ctx.fillRect(rand() * size, rand() * size, 1.5, 1.5);
+    ctx.fillRect(rand() * size, rand() * size, 1.5 * k, 1.5 * k);
   }
   ctx.globalAlpha = 1;
   return canvas;
@@ -39,15 +42,15 @@ function makeMossCanvas(seed: number, size = 512): HTMLCanvasElement {
 
 function makeGlowSprite(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 64;
+  canvas.width = canvas.height = 128;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
     grad.addColorStop(0, 'rgba(255,255,255,1)');
     grad.addColorStop(0.4, 'rgba(255,255,255,0.45)');
     grad.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillRect(0, 0, 128, 128);
   }
   return new THREE.CanvasTexture(canvas);
 }
@@ -62,6 +65,8 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(BG);
@@ -82,7 +87,7 @@ scene.add(hemi);
 const sunLight = new THREE.DirectionalLight(0xe9f0d2, 1.5);
 sunLight.position.set(5, 9, 7);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.mapSize.set(4096, 4096);
 sunLight.shadow.camera.left = -16;
 sunLight.shadow.camera.right = 16;
 sunLight.shadow.camera.top = 16;
@@ -96,7 +101,7 @@ scene.add(sunLight.target);
 const moonLight = new THREE.DirectionalLight(0xa8c0e8, 0);
 moonLight.position.set(0, 10, -4);
 moonLight.castShadow = true;
-moonLight.shadow.mapSize.set(1024, 1024);
+moonLight.shadow.mapSize.set(2048, 2048);
 moonLight.shadow.camera.left = -16;
 moonLight.shadow.camera.right = 16;
 moonLight.shadow.camera.top = 16;
@@ -115,6 +120,7 @@ const mossTex = new THREE.CanvasTexture(makeMossCanvas(1234));
 mossTex.wrapS = mossTex.wrapT = THREE.RepeatWrapping;
 mossTex.repeat.set(4, 3);
 mossTex.colorSpace = THREE.SRGBColorSpace;
+mossTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
 const groundTex = mossTex.clone();
 groundTex.repeat.set(14, 14);
@@ -196,7 +202,7 @@ const archGroups: THREE.Group[] = [];
 const archMats: THREE.MeshStandardMaterial[] = [];
 
 ARCHES.forEach((def, i) => {
-  const geo = new THREE.TorusGeometry(def.radius, def.tube, 20, 72, Math.PI);
+  const geo = new THREE.TorusGeometry(def.radius, def.tube, 40, 180, Math.PI);
   jitter(geo, 0.1, i * 7.13 + 1.7);
   const mat = new THREE.MeshStandardMaterial({
     map: mossTex,
@@ -225,7 +231,7 @@ ARCHES.slice(0, 2).forEach((def, k) => {
   const group = archGroups[k];
   for (let i = 0; i < 3; i++) {
     const u = 0.5 + Math.random() * (Math.PI - 1);
-    const stub = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.1, 0.55, 6), archMats[k]);
+    const stub = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.1, 0.55, 12), archMats[k]);
     stub.castShadow = true;
     const radial = def.radius + def.tube * 0.8;
     stub.position.set(Math.cos(u) * radial, Math.sin(u) * radial, (Math.random() - 0.5) * 0.2);
