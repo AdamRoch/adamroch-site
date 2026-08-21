@@ -96,9 +96,9 @@ const semis = 12 * Math.floor(steps / PENTA.length) + PENTA[steps % PENTA.length
 1. **Fidelity pass — Living World done** (moss canvas 512 → 2048 with scaled
    detail, tori 20×72 → 40×180, stubs 6 → 12 sides, shadow maps sun 4096 /
    moon 2048, max texture anisotropy, ACES tone mapping, glow sprite 64 → 128).
-   Fidelity-first: no adaptive quality scaling. Same treatment later for the
-   other two pages (Event Horizon: STEPS / render scale; Sonic Terrain:
-   COLS / ROWS density).
+   Fidelity-first: no adaptive quality scaling. Sonic Terrain done (COLS 64 → 96,
+   ROWS 110 → 160 — first ox-alpha/OpenCode ticket). Event Horizon in flight:
+   STEPS 44 → 64, pixel-ratio cap 1.75 → 2.
 2. **Adaptive/mobile quality — separate ticket.** Lower-resolution fallbacks for
    weaker hardware, decided after a performance testing pass.
 3. **Design-note UI.** Mock-up for the discreet per-page button + panel that will
