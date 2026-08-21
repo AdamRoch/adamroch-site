@@ -33,8 +33,8 @@ function frameCamera(): void {
 
 /* ————— terrain: a rolling history of spectrum frames as a line mesh ————— */
 
-const COLS = 64; // frequency bins across
-const ROWS = 110; // frames of history receding to the horizon
+const COLS = 96; // frequency bins across
+const ROWS = 160; // frames of history receding to the horizon
 const X_HALF = 2.7;
 const Z_NEAR = 2.3;
 const Z_FAR = -7.0;
