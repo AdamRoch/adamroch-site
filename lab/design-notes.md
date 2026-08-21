@@ -97,9 +97,16 @@ const semis = 12 * Math.floor(steps / PENTA.length) + PENTA[steps % PENTA.length
    detail, tori 20×72 → 40×180, stubs 6 → 12 sides, shadow maps sun 4096 /
    moon 2048, max texture anisotropy, ACES tone mapping, glow sprite 64 → 128).
    Fidelity-first: no adaptive quality scaling. Sonic Terrain done (COLS 64 → 96,
-   ROWS 110 → 160 — first ox-alpha/OpenCode ticket). Event Horizon in flight:
-   STEPS 44 → 64, pixel-ratio cap 1.75 → 2.
+   ROWS 110 → 160 — first ox-alpha/OpenCode ticket). Event Horizon done
+   (STEPS 44 → 64, pixel-ratio cap 1.75 → 2 — resolves a truer, larger shadow;
+   ~1.9× GPU cost on retina, watch the FPS meter).
 2. **Adaptive/mobile quality — separate ticket.** Lower-resolution fallbacks for
    weaker hardware, decided after a performance testing pass.
 3. **Design-note UI.** Mock-up for the discreet per-page button + panel that will
    hold the notes above.
+4. **Sonic Terrain spectrum mapping.** Feed the denser 96-column grid more of the
+   FFT range: raise the `* 520` multiplier in `readAnalyserRow` toward ~700,
+   keeping the log-ish curve shape.
+5. **Stretch ticket (later, ox-alpha):** a full interactive walk-through 3D scene
+   as a new lab page. First open-ended build test for the model — scope it when
+   tickets 2–4 are done.
