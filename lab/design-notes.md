@@ -27,6 +27,13 @@ const mossTex = new THREE.CanvasTexture(makeMossCanvas(1234));
 Shadows are real (PCF soft shadow maps — 4096px sun, 2048px moon), and the
 periodic "scan" effect is just the materials flipping into wireframe and back.
 
+The EXPLORE button flies the camera along a Catmull-Rom spline threaded through
+three of the arch openings — out through the big left arch and the small center
+one, a wide sweep around the back field, then home through the right arch —
+while the fov pushes 42 → 34 and back for the zoom. The control points are
+verified clear of every arch tube, and the flight hands control back to the
+mouse parallax without a pop.
+
 ---
 
 ## Event Horizon (`/lab/event-horizon/`)

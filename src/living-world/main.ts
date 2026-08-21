@@ -457,7 +457,7 @@ if (reduced) {
   });
 }
 
-/* ————— wireframe scan: periodic pulse + manual trigger ————— */
+/* ————— wireframe scan: periodic pulse ————— */
 
 function runScan(): void {
   archMats.forEach((mat, i) => {
@@ -474,7 +474,79 @@ function runScan(): void {
   });
 }
 
-document.getElementById('lw-explore')?.addEventListener('click', runScan);
+/* ————— explore ride: a camera flight through three archways and home ————— */
+
+// control points thread the arch openings (verified clear of every tube):
+// out through the big left arch and the small center one, a wide sweep
+// around the back field, then home through the right arch
+const rideCurve = new THREE.CatmullRomCurve3(
+  [
+    new THREE.Vector3(0, 1.5, 9.5),
+    new THREE.Vector3(-2.2, 1.35, 3.5),
+    new THREE.Vector3(-3.3, 1.25, -1.4),
+    new THREE.Vector3(-4.4, 1.25, -3.5),
+    new THREE.Vector3(-5.5, 1.3, -5.6),
+    new THREE.Vector3(-2.0, 1.35, -6.4),
+    new THREE.Vector3(0.95, 1.0, -5.6),
+    new THREE.Vector3(0.6, 1.0, -7.5),
+    new THREE.Vector3(0.25, 1.05, -9.5),
+    new THREE.Vector3(1.2, 1.6, -12.5),
+    new THREE.Vector3(6.0, 1.75, -12.3),
+    new THREE.Vector3(9.2, 1.8, -11.0),
+    new THREE.Vector3(5.9, 1.4, -6.4),
+    new THREE.Vector3(4.3, 1.3, -4.5),
+    new THREE.Vector3(2.7, 1.4, -2.6),
+    new THREE.Vector3(1.2, 1.5, 3.5),
+    new THREE.Vector3(0, 1.5, 9.5),
+  ],
+  false,
+  'centripetal'
+);
+
+const LOOK_HOME = new THREE.Vector3(0, 1.3, -2);
+const rideLook = new THREE.Vector3();
+const rideState = { u: 0 };
+let riding = false;
+
+const exploreBtn = document.getElementById('lw-explore') as HTMLButtonElement | null;
+if (reduced) {
+  if (exploreBtn) exploreBtn.style.display = 'none';
+} else {
+  exploreBtn?.addEventListener('click', () => {
+    if (riding) return;
+    riding = true;
+    exploreBtn.disabled = true;
+    lastScan = t; // no wireframe pulse mid-flight
+    rideState.u = 0;
+    gsap
+      .timeline({
+        onComplete: () => {
+          riding = false;
+          exploreBtn.disabled = false;
+          lastScan = t;
+          // hand control back to the parallax loop without a pop
+          camX = camera.position.x;
+          camY = camera.position.y;
+          camera.fov = 42;
+          camera.updateProjectionMatrix();
+        },
+      })
+      .to(rideState, { u: 1, duration: 16, ease: 'power1.inOut' }, 0)
+      .to(
+        camera,
+        {
+          fov: 34,
+          duration: 8,
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: 1,
+          onUpdate: () => camera.updateProjectionMatrix(),
+        },
+        0
+      );
+  });
+}
+
 let lastScan = 0;
 
 /* ————— interaction state ————— */
@@ -540,7 +612,7 @@ function frame(): void {
   const dt = Math.min(timer.getDelta(), 0.05);
   t += dt;
 
-  if (!cycling && t - lastScan > 15) {
+  if (!cycling && !riding && t - lastScan > 15) {
     lastScan = t;
     runScan();
   }
@@ -570,12 +642,24 @@ function frame(): void {
     group.scale.setScalar(base * (1 + Math.sin(t * 0.45 + i * 1.3) * 0.008));
   });
 
-  const driftX = drift ? Math.sin(t * 0.11) * 0.8 : 0;
-  const driftY = drift ? Math.sin(t * 0.07) * 0.3 : 0;
-  camX += (mouseX * 1.4 + driftX - camX) * 0.04;
-  camY += (1.5 + mouseY * 0.45 + driftY - camY) * 0.04;
-  camera.position.set(camX, camY, 9.5);
-  camera.lookAt(0, 1.3, -2);
+  if (riding) {
+    const u = rideState.u;
+    camera.position.copy(rideCurve.getPointAt(u));
+    rideLook.copy(rideCurve.getPointAt(Math.min(u + 0.03, 1)));
+    // ease the gaze from/to the idle framing at both ends of the flight
+    const homeBlend = Math.max(
+      1 - THREE.MathUtils.smoothstep(u, 0, 0.08),
+      THREE.MathUtils.smoothstep(u, 0.82, 0.97)
+    );
+    camera.lookAt(rideLook.lerp(LOOK_HOME, homeBlend));
+  } else {
+    const driftX = drift ? Math.sin(t * 0.11) * 0.8 : 0;
+    const driftY = drift ? Math.sin(t * 0.07) * 0.3 : 0;
+    camX += (mouseX * 1.4 + driftX - camX) * 0.04;
+    camY += (1.5 + mouseY * 0.45 + driftY - camY) * 0.04;
+    camera.position.set(camX, camY, 9.5);
+    camera.lookAt(0, 1.3, -2);
+  }
 
   if (ring && !ring.hidden) {
     ringX += (ringTX - ringX) * 0.18;
