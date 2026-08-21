@@ -28,7 +28,7 @@ export const fragmentShader = /* glsl */ `
   #define R_IN 1.25
   #define R_OUT 4.4
   #define FOCAL 1.42
-  #define STEPS 44
+  #define STEPS 64
   #define SHEET_Z 2.0
 
   float hash13(vec3 p) {
