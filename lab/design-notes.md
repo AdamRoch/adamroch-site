@@ -91,6 +91,31 @@ const semis = 12 * Math.floor(steps / PENTA.length) + PENTA[steps % PENTA.length
 
 ---
 
+## The Walkthrough — Colossus (`/lab/walkthrough/`)
+
+A first-person walk on a dusk beach. One height function drives both physics
+and rendering — the walker and the ground mesh sample the same math, so feet
+and sand never disagree. The colossus is a CC0 photogrammetry scan (Poly
+Haven, `marble_bust_01`), normalized by bounding box to monumental scale,
+tipped onto its cheek, and seated a third into the sand. It has pressed a
+shallow Gaussian bowl into the dunes around itself.
+
+```ts
+let h = WATER_Y + inland * 0.045; // the beach falls toward the water
+h = Math.min(h, 2.1); // a dune crest caps the climb inland
+h -= Math.exp(-(hx * hx + hz * hz) / 96) * 0.34; // the colossus's bowl
+```
+
+The sea is a standard material with a scrolling normal map baked from layered
+sine swell at boot — this sea is asleep. The wet-sand band is an
+`onBeforeCompile` patch that darkens and glosses the ground near the
+waterline. Collision is radial push-out against cylinder colliders. Audio is
+pure WebAudio: filtered-noise surf, a drone that gains near the head, a horn
+when every resonance stone is lit. The easter egg is at the waterline, looking
+at the sun.
+
+---
+
 ## Work queue (not site copy)
 
 1. **Fidelity pass — Living World done** (moss canvas 512 → 2048 with scaled
@@ -108,5 +133,18 @@ const semis = 12 * Math.floor(steps / PENTA.length) + PENTA[steps % PENTA.length
    per-page button + panel holding the notes above, each styled to its page's
    design language.
 4. **Sonic Terrain spectrum mapping — done:** multiplier 520 → 700.
-5. **Stretch ticket (next, ox-alpha):** a full interactive walk-through 3D scene
-   as a new lab page — first open-ended build test. Scope it with Adam.
+5. **Walkthrough scene ("Colossus") — done, live.** 5a skeleton (pointer-lock
+   FPS controls, page shell, lab-quality wiring); 5b hero content (dusk beach,
+   CC0 Poly Haven marble bust seated half-buried); 5c interaction (resonance
+   stones, completion rite, sun-gaze easter egg, WebAudio surf); 5d homepage
+   door + design-note panel. All via ox-alpha tickets.
+6. **The Museum (later, separate site or page).** Brutalist hall of live-shader
+   monoliths, one per lab exhibit; linked arbitrarily from the main site.
+   Navigation between content is out of scope for now — content first.
+7. **The Broadsheet — done, live.** "Attention Is a Material" at
+   /lab/broadsheet/: a scroll-driven typographic essay — paper, ink, one spot
+   of international orange, crop marks, folio progress line. Clash Display
+   variable masthead breathing on the weight axis, marginalia, velocity-scatter
+   pull-quotes, canvas hairline plate, colophon with its own note panel. Built
+   by ox-alpha (essay copy included); verified at five scroll depths via a CDP
+   scroll-screenshot rig (.tmp/scroll-shot.mjs).
