@@ -88,6 +88,78 @@ a.hud:hover {
   color: var(--ember);
 }
 
+/* ————— design note ————— */
+
+.eh-note-btn {
+  position: fixed;
+  bottom: 52px;
+  left: 32px;
+  z-index: 20;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(234, 230, 220, 0.55);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.3s ease;
+}
+
+.eh-note-btn:hover,
+.eh-note-btn:focus-visible,
+.eh-note-btn[aria-expanded='true'] {
+  color: var(--ember);
+}
+
+.eh-note-panel {
+  position: fixed;
+  bottom: 84px;
+  left: 32px;
+  z-index: 25;
+  width: min(560px, calc(100vw - 64px));
+  max-height: calc(100vh - 116px);
+  overflow-y: auto;
+  padding: 22px 26px 20px;
+  background: rgba(11, 11, 13, 0.94);
+  border: 1px solid rgba(234, 230, 220, 0.22);
+}
+
+.eh-note-panel h2 {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ember);
+  margin: 0 0 14px;
+}
+
+.eh-note-panel p {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.75;
+  color: rgba(234, 230, 220, 0.72);
+  margin: 0;
+}
+
+.eh-note-panel pre {
+  margin: 16px 0;
+  padding: 13px 16px;
+  background: rgba(255, 77, 0, 0.06);
+  border-left: 2px solid var(--ember);
+  overflow-x: auto;
+}
+
+.eh-note-panel code {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+  color: rgba(235, 240, 246, 0.88);
+}
+
 /* ————— headline ————— */
 
 .headline {
@@ -149,6 +221,23 @@ a.hud:hover {
   .headline p {
     font-size: 8px;
     letter-spacing: 0.22em;
+  }
+  .eh-note-btn { bottom: 20px; left: 20px; }
+  .eh-note-panel {
+    bottom: 48px;
+    left: 16px;
+    width: calc(100vw - 32px);
+    max-height: calc(100vh - 68px);
+    padding: 18px 20px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .eh-note-btn {
+    animation: eh-rise 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+  }
+  .eh-note-panel {
+    animation: eh-rise 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 

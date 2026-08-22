@@ -24,6 +24,7 @@
         </svg>
         <span>Home</span>
       </a>
+      <button class="lw-pill lw-note-btn" id="lw-note-btn" type="button" aria-expanded="false" aria-controls="lw-note-panel">Design note</button>
     </nav>
 
     <header class="lw-hero" data-lw-ui>
@@ -47,6 +48,34 @@
     </button>
 
     <p class="lw-note" data-lw-ui>Interface Lab 01 — a design study. Scene fully procedural, zero assets.</p>
+
+    <aside class="lw-note-panel" id="lw-note-panel" aria-label="Design note — how this page is built" hidden>
+      <h2>How it's built</h2>
+      <p>
+        The scene is 100% procedural Three.js — no model files, no image assets. The arches are
+        torus geometry with seeded noise pushed through their vertices once at build time. The moss
+        is a canvas texture painted at runtime. The sun and moon are glow sprites, and the day-night
+        cycle is a single GSAP timeline that drives the key light's position, color, and intensity
+        along with the fog and sky. Even the butterfly is two planes flapping on a sine wave.
+      </p>
+      <pre><code>// every arch: a half-torus, displaced once at build time
+const geo = new THREE.TorusGeometry(def.radius, def.tube, 40, 180, Math.PI);
+jitter(geo, 0.1, i * 7.13 + 1.7); // seeded trig noise through the vertices
+
+// the moss: a canvas painted at runtime, reused as map + bump
+const mossTex = new THREE.CanvasTexture(makeMossCanvas(1234));</code></pre>
+      <p>
+        Shadows are real (PCF soft shadow maps — 4096px sun, 2048px moon), and the periodic "scan"
+        effect is just the materials flipping into wireframe and back.
+      </p>
+      <p>
+        The EXPLORE button flies the camera along a Catmull-Rom spline threaded through three of the
+        arch openings — out through the big left arch and the small center one, a wide sweep around
+        the back field, then home through the right arch — while the fov pushes 42 → 34 and back for
+        the zoom. The control points are verified clear of every arch tube, and the flight hands
+        control back to the mouse parallax without a pop.
+      </p>
+    </aside>
 
     <script type="module" src="/src/living-world/main.ts"></script>
   </body>

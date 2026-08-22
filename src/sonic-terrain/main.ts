@@ -207,6 +207,29 @@ pill.addEventListener('click', () => {
     .finally(refreshChrome);
 });
 
+/* ————— design note toggle ————— */
+
+const noteBtn = document.getElementById('st-note-btn') as HTMLButtonElement | null;
+const notePanel = document.getElementById('st-note-panel') as HTMLElement | null;
+
+function setNoteOpen(open: boolean): void {
+  if (!noteBtn || !notePanel) return;
+  noteBtn.setAttribute('aria-expanded', String(open));
+  notePanel.hidden = !open;
+}
+
+noteBtn?.addEventListener('click', () => {
+  if (!noteBtn || !notePanel) return;
+  setNoteOpen(noteBtn.getAttribute('aria-expanded') !== 'true');
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && notePanel && !notePanel.hidden) {
+    setNoteOpen(false);
+    noteBtn?.focus();
+  }
+});
+
 /* ————— plucking the terrain ————— */
 
 const raycaster = new THREE.Raycaster();
