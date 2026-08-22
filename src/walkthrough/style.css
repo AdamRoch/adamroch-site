@@ -86,6 +86,80 @@ a.hud:hover {
   outline: none;
 }
 
+/* ————— design note ————— */
+
+.hud-note {
+  top: 48px;
+  right: 32px;
+  z-index: 35;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: rgba(35, 33, 28, 0.6);
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.hud-note:hover,
+.hud-note:focus-visible {
+  color: var(--brass-deep);
+  outline: none;
+}
+
+.wt-note-panel {
+  position: fixed;
+  top: 76px;
+  right: 32px;
+  z-index: 35;
+  width: min(430px, calc(100vw - 48px));
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  background: rgba(22, 20, 16, 0.92);
+  border: 1px solid rgba(236, 231, 219, 0.16);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 24px 26px 22px;
+}
+
+.wt-note-panel h2 {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin: 0 0 14px;
+}
+
+.wt-note-panel p {
+  font-family: var(--serif);
+  font-size: 13.5px;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  color: rgba(236, 231, 219, 0.82);
+  margin: 0 0 12px;
+}
+
+.wt-note-panel p:last-child {
+  margin-bottom: 0;
+}
+
+.wt-note-panel pre {
+  margin: 14px 0;
+  padding: 12px 14px;
+  background: rgba(15, 14, 11, 0.85);
+  border: 1px solid rgba(236, 231, 219, 0.14);
+  overflow-x: auto;
+}
+
+.wt-note-panel code {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--bone);
+}
+
 /* ————— the markers' hint ————— */
 
 .wt-hint {
@@ -251,6 +325,8 @@ a.hud:hover {
   }
   .hud-tl { top: 20px; left: 20px; }
   .hud-tr { top: 20px; right: 20px; }
+  .hud-note { top: 42px; right: 20px; }
+  .wt-note-panel { top: 68px; right: 20px; width: calc(100vw - 40px); }
   .wt-card { padding: 30px 26px 28px; }
 }
 
