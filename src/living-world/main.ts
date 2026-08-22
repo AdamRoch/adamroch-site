@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
+import { watchQuality } from '../lab-quality';
 import './style.css';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -602,6 +603,23 @@ if (!reduced) {
   });
 }
 
+/* ————— adaptive quality ————— */
+
+let qualityTier = 0;
+function stepQualityDown(): void {
+  qualityTier++;
+  if (qualityTier === 1) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    return;
+  }
+  // a smaller shadow fbo only takes effect once the old map is disposed
+  for (const light of [sunLight, moonLight]) {
+    light.shadow.map?.dispose();
+    light.shadow.map = null;
+    light.shadow.mapSize.multiplyScalar(0.5);
+  }
+}
+
 /* ————— loop ————— */
 
 const timer = new THREE.Timer();
@@ -683,4 +701,5 @@ if (reduced) {
   renderer.render(scene, camera);
 } else {
   frame();
+  watchQuality(stepQualityDown);
 }

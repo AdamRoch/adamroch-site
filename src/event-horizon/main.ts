@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { vertexShader, fragmentShader } from './shaders';
+import { watchQuality } from '../lab-quality';
 import './style.css';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -71,6 +72,7 @@ const uniforms = {
   uCamUp: { value: new THREE.Vector3(0, 1, 0) },
   uCamFwd: { value: new THREE.Vector3(0, 0, -1) },
   uCodeTex: { value: makeCodeTexture() },
+  uMaxSteps: { value: 64 },
 };
 
 scene.add(
@@ -130,6 +132,19 @@ function updateCamera(): void {
   uniforms.uCamUp.value.copy(up);
 }
 
+/* ————— adaptive quality ————— */
+
+let qualityTier = 0;
+function stepQualityDown(): void {
+  qualityTier++;
+  if (qualityTier === 1) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    resize(); // setPixelRatio re-applies size — keep uRes in step
+    return;
+  }
+  uniforms.uMaxSteps.value = 44; // shorter march, same scene
+}
+
 /* ————— loop ————— */
 
 const fpsEl = document.getElementById('eh-fps');
@@ -162,4 +177,5 @@ if (reduced) {
   if (fpsEl) fpsEl.textContent = 'STILL FRAME';
 } else {
   frame();
+  watchQuality(stepQualityDown);
 }

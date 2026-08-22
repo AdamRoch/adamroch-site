@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getState, getAnalyser, setState, pluckAt, type SoundState } from './audio';
+import { watchQuality } from '../lab-quality';
 import './style.css';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -34,42 +35,46 @@ function frameCamera(): void {
 /* ————— terrain: a rolling history of spectrum frames as a line mesh ————— */
 
 const COLS = 96; // frequency bins across
-const ROWS = 160; // frames of history receding to the horizon
+let ROWS = 160; // frames of history receding to the horizon
 const X_HALF = 2.7;
 const Z_NEAR = 2.3;
 const Z_FAR = -7.0;
 
-const vertCount = ROWS * COLS;
-const positions = new Float32Array(vertCount * 3);
-const colors = new Float32Array(vertCount * 3);
+function buildGrid(): void {
+  const vertCount = ROWS * COLS;
+  const positions = new Float32Array(vertCount * 3);
+  const colors = new Float32Array(vertCount * 3);
 
-for (let r = 0; r < ROWS; r++) {
-  for (let c = 0; c < COLS; c++) {
-    const i = r * COLS + c;
-    positions[i * 3 + 0] = (c / (COLS - 1)) * 2 * X_HALF - X_HALF;
-    positions[i * 3 + 1] = 0;
-    positions[i * 3 + 2] = Z_NEAR + (r / (ROWS - 1)) * (Z_FAR - Z_NEAR);
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const i = r * COLS + c;
+      positions[i * 3 + 0] = (c / (COLS - 1)) * 2 * X_HALF - X_HALF;
+      positions[i * 3 + 1] = 0;
+      positions[i * 3 + 2] = Z_NEAR + (r / (ROWS - 1)) * (Z_FAR - Z_NEAR);
+    }
   }
-}
 
-const index: number[] = [];
-for (let r = 0; r < ROWS; r++) {
-  for (let c = 0; c < COLS - 1; c++) {
-    const i = r * COLS + c;
-    index.push(i, i + 1);
+  const index: number[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS - 1; c++) {
+      const i = r * COLS + c;
+      index.push(i, i + 1);
+    }
   }
-}
-for (let r = 0; r < ROWS - 1; r++) {
-  for (let c = 0; c < COLS; c++) {
-    const i = r * COLS + c;
-    index.push(i, i + COLS);
+  for (let r = 0; r < ROWS - 1; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const i = r * COLS + c;
+      index.push(i, i + COLS);
+    }
   }
+
+  geometry.setIndex(index);
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
 const geometry = new THREE.BufferGeometry();
-geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-geometry.setIndex(index);
+buildGrid();
 
 const material = new THREE.LineBasicMaterial({
   vertexColors: true,
@@ -94,7 +99,7 @@ scene.add(hitPlane);
 
 /* ————— spectrum data: analyser bytes, or a synthetic swell while muted ————— */
 
-const history = new Float32Array(ROWS * COLS); // ring rows, 0 = nearest
+let history = new Float32Array(ROWS * COLS); // ring rows, 0 = nearest
 const smooth = new Float32Array(COLS);
 const pulse = new Float32Array(COLS); // pluck flashes
 const fftBytes = new Uint8Array(1024);
@@ -243,6 +248,24 @@ canvas.addEventListener('pointermove', (e) => {
   if (dragging) pluckFromPointer(e);
 });
 
+/* ————— adaptive quality ————— */
+
+let qualityTier = 0;
+function stepQualityDown(): void {
+  qualityTier++;
+  if (qualityTier === 1) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+    return;
+  }
+  // dispose frees the old grid buffers before they are replaced
+  geometry.dispose();
+  ROWS = 110;
+  const next = new Float32Array(ROWS * COLS);
+  next.set(history.subarray(0, next.length)); // keep the most recent rows
+  history = next;
+  buildGrid();
+}
+
 /* ————— loop ————— */
 
 const timer = new THREE.Timer();
@@ -292,4 +315,5 @@ if (reduced) {
   statusEl.textContent = 'STILL FRAME — REDUCED MOTION';
 } else {
   frame();
+  watchQuality(stepQualityDown);
 }
