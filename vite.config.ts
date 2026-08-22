@@ -10,6 +10,7 @@ export default defineConfig({
         'lab/event-horizon': fileURLToPath(new URL('./lab/event-horizon/index.html', import.meta.url)),
         'lab/sonic-terrain': fileURLToPath(new URL('./lab/sonic-terrain/index.html', import.meta.url)),
         'lab/walkthrough': fileURLToPath(new URL('./lab/walkthrough/index.html', import.meta.url)),
+        'lab/broadsheet': fileURLToPath(new URL('./lab/broadsheet/index.html', import.meta.url)),
       },
     },
   },
