@@ -16,6 +16,30 @@
     <div class="hud hud-bl"><span id="eh-fps">FPS —</span> · RAYMARCHED LIVE</div>
     <div class="hud hud-br">GRAVITY AS A <span class="ember">RAW MATERIAL</span></div>
 
+    <button class="eh-note-btn" id="eh-note-btn" type="button" aria-expanded="false" aria-controls="eh-note-panel">[ Design note ]</button>
+
+    <aside class="eh-note-panel" id="eh-note-panel" aria-label="Design note — how this page is built" hidden>
+      <h2>[ How it's built ]</h2>
+      <p>
+        No meshes, no assets — the entire image is one fragment shader. Each pixel fires a ray that
+        gets bent by a simple 1/r² gravitational pull over 64 integration steps. Along the way the
+        march checks three things: capture (the ray falls past the event horizon), crossings of the
+        accretion disk plane, and crossings of a "code sheet" curtain that gets lensed into the
+        hole.
+      </p>
+      <pre><code>// bend the ray, 64 steps per pixel
+vec3 acc = -1.55 * p / (r2 * r);
+v = normalize(v + acc * dt);</code></pre>
+      <p>
+        The disk rotates differentially — inner material orbits faster, Kepler-style — and the side
+        rotating toward the viewer burns brighter (doppler beaming). The photon ring comes from
+        tracking each ray's closest approach; captured rays leave the shadow pure black. The code
+        glyphs are a monospace canvas texture, the only "texture" in the piece.
+      </p>
+      <pre><code>// keplerian differential rotation
+float omega = 2.2 * pow(rd, -1.5); // inner material orbits faster</code></pre>
+    </aside>
+
     <header class="headline">
       <h1>Welcome to the lab.</h1>
       <p>SHADERS <span class="ember">&amp;</span> WEBGL — EXHIBIT ONE</p>

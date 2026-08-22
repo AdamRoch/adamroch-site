@@ -16,6 +16,30 @@
     <div class="hud hud-bl"><span id="st-status">ANALYSER 2048-FFT</span></div>
     <div class="hud hud-br">THE BROWSER AS AN <span class="ember">INSTRUMENT</span></div>
 
+    <button class="st-note-btn" id="st-note-btn" type="button" aria-expanded="false" aria-controls="st-note-panel">[ Design note ]</button>
+
+    <aside class="st-note-panel" id="st-note-panel" aria-label="Design note — how this page is built" hidden>
+      <h2>[ How it's built ]</h2>
+      <p>
+        The terrain is a line-mesh grid: 96 frequency bins across, 160 rows of scrolling history
+        receding to the horizon. Each animation frame reads the AnalyserNode (2048-point FFT), maps
+        bins on a log-ish curve so the bass band stays wide the way the ear hears it, applies
+        attack-fast / release-slow smoothing, and pushes a new row onto the ring buffer.
+      </p>
+      <pre><code>// history recedes: shift everything one row back, write the new frame at row 0
+history.copyWithin(COLS, 0, history.length - COLS);
+history.set(values, 0);</code></pre>
+      <p>
+        The sound is pure WebAudio, no samples: a generative dark-ambient drone of detuned sine
+        pairs a fifth apart through a lowpass filter wobbled by a slow LFO, plus a noise wash. Mic
+        mode is analysis-only — the input is never routed to the speakers, so there's no feedback.
+        Dragging across the terrain plucks it: raycast position maps to a minor-pentatonic
+        triangle-oscillator note, so everything you play is in key.
+      </p>
+      <pre><code>// position across the terrain → pentatonic note over ~2.5 octaves
+const semis = 12 * Math.floor(steps / PENTA.length) + PENTA[steps % PENTA.length];</code></pre>
+    </aside>
+
     <header class="headline">
       <h1>Sound, made visible.</h1>
       <p>SOUND <span class="ember">&amp;</span> CODE — EXHIBIT TWO</p>

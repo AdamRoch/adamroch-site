@@ -130,6 +130,29 @@ function updateCamera(): void {
   uniforms.uCamUp.value.copy(up);
 }
 
+/* ————— design note toggle ————— */
+
+const noteBtn = document.getElementById('eh-note-btn') as HTMLButtonElement | null;
+const notePanel = document.getElementById('eh-note-panel') as HTMLElement | null;
+
+function setNoteOpen(open: boolean): void {
+  if (!noteBtn || !notePanel) return;
+  noteBtn.setAttribute('aria-expanded', String(open));
+  notePanel.hidden = !open;
+}
+
+noteBtn?.addEventListener('click', () => {
+  if (!noteBtn || !notePanel) return;
+  setNoteOpen(noteBtn.getAttribute('aria-expanded') !== 'true');
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && notePanel && !notePanel.hidden) {
+    setNoteOpen(false);
+    noteBtn?.focus();
+  }
+});
+
 /* ————— loop ————— */
 
 const fpsEl = document.getElementById('eh-fps');
