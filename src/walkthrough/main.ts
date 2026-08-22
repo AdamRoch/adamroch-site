@@ -644,7 +644,8 @@ if (!canEngage()) {
   if (enterBtn) enterBtn.textContent = 'View the scene';
 }
 
-overlay?.addEventListener('click', () => {
+overlay?.addEventListener('click', (e) => {
+  if ((e.target as HTMLElement | null)?.closest('a')) return; // let the way home stay a link
   if (!overlay || !canEngage()) {
     if (overlay) overlay.hidden = true; // nothing to lock into — just step aside
     return;
@@ -653,14 +654,22 @@ overlay?.addEventListener('click', () => {
   if (req instanceof Promise) req.catch(() => {});
 });
 
+const crosshair = document.getElementById('wt-crosshair');
+let entered = false;
+
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
+  entered = entered || locked;
   if (overlay) overlay.hidden = locked;
+  crosshair?.classList.toggle('show', locked);
   if (locked && !reduced) applySound(); // entry is the user gesture audio needs
   if (!locked) {
     clearKeys();
     velocity.set(0, 0, 0);
-    if (canEngage()) enterBtn?.focus();
+    if (canEngage()) {
+      if (entered && enterBtn) enterBtn.textContent = 'Step back in';
+      enterBtn?.focus();
+    }
   }
 });
 

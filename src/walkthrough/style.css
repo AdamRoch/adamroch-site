@@ -34,7 +34,7 @@ body {
 
 .hud {
   position: fixed;
-  z-index: 20;
+  z-index: 35; /* above the entry overlay, so the way home stays clickable while paused */
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.14em;
@@ -286,6 +286,46 @@ a.hud:hover {
   border-color: var(--brass);
   color: var(--brass);
   outline: none;
+}
+
+.wt-leave {
+  display: block;
+  margin-top: 18px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(236, 231, 219, 0.45);
+  transition: color 0.3s ease;
+}
+
+.wt-leave:hover,
+.wt-leave:focus-visible {
+  color: var(--brass);
+  outline: none;
+}
+
+/* ————— the crosshair: aim lives at screen centre while the pointer is locked ————— */
+
+#wt-crosshair {
+  position: fixed;
+  z-index: 25;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #fff;
+  mix-blend-mode: difference; /* reads against the bright sun and the dark alike */
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+#wt-crosshair.show {
+  opacity: 0.85;
 }
 
 /* ————— entrance ————— */
