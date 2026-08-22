@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Attention Is a Material — a scroll-driven typographic broadsheet. An essay on the scarcest resource on the web, by Adam Roch." />
+    <meta name="theme-color" content="#f4f1ea" />
+    <title>Attention Is a Material — The Lab — Adam Roch</title>
+    <script>
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
+        document.documentElement.classList.add('bs-js');
+    </script>
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
+    <link
+      href="https://api.fontshare.com/v2/css?f[]=clash-display@1&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://api.fontshare.com/v2/css?f[]=sentient@400,401,500,700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="crop crop-tl" aria-hidden="true"></div>
+    <div class="crop crop-tr" aria-hidden="true"></div>
+    <div class="crop crop-bl" aria-hidden="true"></div>
+    <div class="crop crop-br" aria-hidden="true"></div>
+
+    <nav class="chipbar" aria-label="Page controls">
+      <a class="chip chip-home" href="/" aria-label="Back to adamroch.com">&larr; Home</a>
+      <button
+        class="chip chip-note"
+        id="bs-note-btn"
+        type="button"
+        aria-expanded="false"
+        aria-controls="bs-note-panel"
+      >
+        Design note
+      </button>
+    </nav>
+
+    <header class="masthead" id="top">
+      <div class="mast-inner">
+        <p class="mast-meta mono">
+          <span>Adam Roch — The Lab</span>
+          <span class="mast-meta-mid">Broadsheet No. 05</span>
+          <span>Printed in the browser</span>
+        </p>
+
+        <p class="kicker mono">An essay in five sections on the web's scarcest resource</p>
+
+        <h1 class="mast-title">
+          <span class="mast-mask"><span class="mast-line disp">Attention</span></span>
+          <span class="mast-mask mast-mask-alt"><span class="mast-line alt">is a</span></span>
+          <span class="mast-mask"><span class="mast-line disp right">Material<span class="dot">.</span></span></span>
+        </h1>
+
+        <div class="mast-foot">
+          <p class="deck">
+            Every feed is a mining operation, and the ore is
+            <span class="redact"><span class="redact-word">your morning.</span><span class="redact-bar" aria-hidden="true"></span></span>
+            Five short sections on the scarcest material online, what it costs, and how to stop
+            paying it out by the scoop.
+          </p>
+          <p class="mast-hint mono">Scroll to declassify &darr;</p>
+        </div>
+      </div>
+    </header>
+
+    <main id="essay">
+      <section class="row" aria-labelledby="s1-h">
+        <aside class="marginalia mono">
+          <span class="marg-no">&sect; 01</span>
+          <span class="marg-slug">Scarcity</span>
+          <span class="marg-note">Same allotment for everyone</span>
+        </aside>
+        <div class="prose">
+          <h2 id="s1-h" data-reveal>A commodity with no warehouse</h2>
+          <p class="dropcap">
+            Gold is rare. Uranium is rarer. But both hold still — you can stockpile them, insure
+            them, steal them. Attention won't hold still. It arrives at roughly sixteen waking
+            hours a day, unbuffered, and whatever you fail to spend today is simply gone.
+          </p>
+          <p>
+            That makes it stranger than anything with a ticker symbol. It cannot be mined faster,
+            warehoused, or shipped to a market with higher prices. Everyone gets the same
+            allotment, and no logistics network on earth can move an hour of attention from someone
+            who squanders it to someone who needs it.
+          </p>
+          <p>Scarcity like that deserves respect. Instead, we built machines to strip-mine it.</p>
+        </div>
+      </section>
+
+      <hr class="hr" />
+
+      <section class="row" aria-labelledby="s2-h">
+        <aside class="marginalia mono">
+          <span class="marg-no">&sect; 02</span>
+          <span class="marg-slug">Extraction</span>
+          <span class="marg-note">Skinner, with push notifications</span>
+        </aside>
+        <div class="prose">
+          <h2 id="s2-h" data-reveal>The machinery of the take</h2>
+          <p>
+            The extraction equipment has names you know. Infinite scroll removes the stopping cue.
+            Autoplay removes the decision. Pull-to-refresh is a slot lever, and the variable-reward
+            schedule behind it predates the web by decades — B.&nbsp;F. Skinner ran the original
+            trials; he just didn't have push notifications.
+          </p>
+          <p>
+            None of this is subtle once you look. An ad-funded web is priced in attention, so every
+            incentive bends toward taking more of it: more pages per visit, more minutes per
+            session, more sessions per day. The metric was never what you got out of the internet
+            today. It is what it got out of you.
+          </p>
+        </div>
+      </section>
+
+      <figure class="pull">
+        <blockquote>
+          <p class="pull-text">The feed doesn't want your opinion. It wants your Tuesday.</p>
+        </blockquote>
+        <figcaption class="pull-cite mono">— Overheard at a metrics review</figcaption>
+      </figure>
+
+      <hr class="hr" />
+
+      <section class="row" aria-labelledby="s3-h">
+        <aside class="marginalia mono">
+          <span class="marg-no">&sect; 03</span>
+          <span class="marg-slug">Compounding</span>
+          <span class="marg-note">Residue or evaporation</span>
+        </aside>
+        <div class="prose">
+          <h2 id="s3-h" data-reveal>Wherever it points, things grow</h2>
+          <p>
+            Here is where the mining metaphor breaks down, in our favor: attention is not only
+            consumed. Wherever you point it, things grow.
+          </p>
+          <p>
+            An hour in the feed evaporates. The same hour spent building, writing, or reading
+            something hard leaves residue — skill, memory, a half-formed idea that shows up
+            uninvited on Thursday. Invested attention compounds like interest. Harvested attention
+            depreciates like inventory.
+          </p>
+          <p>
+            So "is this app good?" is the wrong question. The right one: when I hand this my
+            evening, what does the evening become?
+          </p>
+        </div>
+      </section>
+
+      <figure class="plate" role="img" aria-label="A field of hairline rules that bends around the pointer as it moves">
+        <canvas id="plate-canvas"></canvas>
+        <span class="plate-stamp mono">Plate I</span>
+        <figcaption class="plate-caption mono">
+          <span>Hairline field under pointer pressure</span>
+          <span class="plate-caption-right">Move slowly — the rules are shy</span>
+        </figcaption>
+      </figure>
+
+      <section class="row" aria-labelledby="s4-h">
+        <aside class="marginalia mono">
+          <span class="marg-no">&sect; 04</span>
+          <span class="marg-slug">Craft</span>
+          <span class="marg-note">Endings are a feature</span>
+        </aside>
+        <div class="prose">
+          <h2 id="s4-h" data-reveal>Spend, don't harvest</h2>
+          <p>
+            Designers say <em>engagement</em> the way casinos say <em>time on floor</em>. The
+            honest word is spending. A page either spends the reader's attention on something worth
+            owning, or it harvests it for someone else's numbers.
+          </p>
+          <p>
+            So design like the reader paid at the door, because they did — in the one currency
+            that never refunds. Cut the autoplay. End the article. Let a finished page feel
+            finished; endings are a feature.
+          </p>
+          <p>
+            This page runs on the same bet: one column, no rail, no infinite anything. When you
+            reach the bottom, it lets you go.
+          </p>
+        </div>
+      </section>
+
+      <figure class="pull">
+        <blockquote>
+          <p class="pull-text">Design like the reader paid for this. They did.</p>
+        </blockquote>
+        <figcaption class="pull-cite mono">— House style, effective immediately</figcaption>
+      </figure>
+
+      <hr class="hr" />
+
+      <section class="row" aria-labelledby="s5-h">
+        <aside class="marginalia mono">
+          <span class="marg-no">&sect; 05</span>
+          <span class="marg-slug">Ledger</span>
+          <span class="marg-note">Unexamined things are expensive</span>
+        </aside>
+        <div class="prose">
+          <h2 id="s5-h" data-reveal>Keep your own books</h2>
+          <p>
+            You cannot rebalance an economy overnight, but you can audit yourself. For one week,
+            write down where the hours actually went. Most people find the figures
+            <span class="redact"><span class="redact-word">embarrassing,</span><span class="redact-bar" aria-hidden="true"></span></span>
+            in the specific way unexamined things always are.
+          </p>
+          <p>
+            Then treat attention like the material it is: finite, priced, and yours. Spend it on
+            work that compounds, on people who notice, on rest that actually rests. The web will
+            happily offer a hundred ways to fritter it before breakfast.
+          </p>
+          <p>Let it keep its ore. You were never the mine.</p>
+        </div>
+      </section>
+
+      <footer class="colophon">
+        <div class="colo-rule" aria-hidden="true"></div>
+        <div class="colo-grid">
+          <div class="colo-col" data-reveal>
+            <h2 class="mono colo-head">Colophon</h2>
+            <dl class="credits">
+              <div class="credit">
+                <dt class="mono">Type</dt>
+                <dd>Clash Display Variable — masthead and pull quotes. Sentient — text.</dd>
+              </div>
+              <div class="credit">
+                <dt class="mono">Inks</dt>
+                <dd>Paper #f4f1ea &middot; Ink #16130e &middot; Spot International Orange #ff4d00.</dd>
+              </div>
+              <div class="credit">
+                <dt class="mono">Press</dt>
+                <dd>GSAP ScrollTrigger + SplitText + Canvas 2D. No WebGL was harmed.</dd>
+              </div>
+              <div class="credit">
+                <dt class="mono">Edition</dt>
+                <dd>Broadsheet No. 05 of The Lab. Unlimited circulation, finite readers.</dd>
+              </div>
+            </dl>
+          </div>
+          <a class="home-link" href="/" data-reveal>&larr; Back to the lab</a>
+        </div>
+        <p class="colo-fine mono">
+          &copy; 2026 Adam Roch — set and printed in the browser. The reader paid for this. They
+          did.
+        </p>
+      </footer>
+    </main>
+
+    <div class="folio" aria-hidden="true">
+      <span class="folio-left mono">Attention is a material</span>
+      <span class="folio-track"><span class="folio-fill" id="folio-fill"></span></span>
+      <span class="folio-page mono" id="folio-page">Folio 01 / 09</span>
+    </div>
+
+    <aside class="note-panel" id="bs-note-panel" aria-label="Design note — how this page is built" hidden>
+      <h2>How it's printed</h2>
+      <p>
+        This page is a love letter to flat: paper ground, black ink, one spot color, hairlines
+        everywhere. No WebGL, no gradients — the fidelity lives entirely in typesetting and motion
+        curves. The masthead breathes on Clash Display's weight axis (a variable font, wght
+        200&ndash;700), tweened through a proxy object into font-variation-settings so the ink
+        visibly swells as each line rises out of its mask.
+      </p>
+      <p>
+        The redaction bars are absolutely positioned rectangles of ink, peeled away by a scrubbed
+        ScrollTrigger with transform-origin on the right. The pull quotes pin for 130% of the
+        viewport, then scatter letter-by-letter with scroll velocity: SplitText cuts them into
+        characters, each gets a random direction vector, and velocity drives how hard they fling
+        apart. Stop scrolling and they settle back into a readable sentence.
+      </p>
+      <pre><code>// velocity scatter: fast scrolls fling the type apart
+const kick = gsap.utils.clamp(-1, 1, self.getVelocity() / 1800);
+chars.forEach((c, i) =&gt; gsap.to(c, {
+  x: dir[i].x * kick * 96,
+  y: dir[i].y * kick * 60,
+  rotation: dir[i].r * kick,
+  duration: 0.55, ease: 'power3.out', overwrite: 'auto',
+}));</code></pre>
+      <p>
+        Plate I is Canvas 2D: about fifty vertical rules sampled at twenty-six points each,
+        displaced by a gaussian falloff around the eased pointer position, with every sixth rule
+        pulled in spot orange. It only runs its rAF loop while intersecting the viewport.
+      </p>
+      <p>
+        prefers-reduced-motion collapses everything to final state — bars hidden, type at rest
+        weight, plate rendered once, pins removed. On mobile the scenes unpin and the type rescales;
+        the essay reads fully either way.
+      </p>
+    </aside>
+
+    <script type="module" src="/src/broadsheet/main.ts"></script>
+  </body>
+</html>
