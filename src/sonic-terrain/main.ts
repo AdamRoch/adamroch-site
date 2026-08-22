@@ -132,7 +132,7 @@ function readAnalyserRow(): Float32Array {
   analyser.getByteFrequencyData(fftBytes);
   for (let c = 0; c < COLS; c++) {
     // log-ish mapping keeps the bass band wide, like the ear hears it
-    const idx = 2 + Math.floor(Math.pow(c / (COLS - 1), 1.6) * 520);
+    const idx = 2 + Math.floor(Math.pow(c / (COLS - 1), 1.6) * 700);
     liveRow[c] = fftBytes[idx] / 255;
   }
   return liveRow;
