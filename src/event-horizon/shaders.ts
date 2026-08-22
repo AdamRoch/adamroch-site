@@ -23,12 +23,13 @@ export const fragmentShader = /* glsl */ `
   uniform vec3 uCamUp;
   uniform vec3 uCamFwd;
   uniform sampler2D uCodeTex;
+  uniform float uMaxSteps;
 
   #define R_HOLE 1.0
   #define R_IN 1.25
   #define R_OUT 4.4
   #define FOCAL 1.42
-  #define STEPS 64
+  #define MAX_STEPS 64
   #define SHEET_Z 2.0
 
   float hash13(vec3 p) {
@@ -106,7 +107,8 @@ export const fragmentShader = /* glsl */ `
     float prevY = p.y;
     float prevZ = p.z - SHEET_Z;
 
-    for (int i = 0; i < STEPS; i++) {
+    for (int i = 0; i < MAX_STEPS; i++) {
+      if (float(i) >= uMaxSteps) break;
       float r2 = dot(p, p);
       float r = sqrt(r2);
       if (r < R_HOLE) { captured = true; break; }
