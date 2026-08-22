@@ -39,13 +39,13 @@ mouse parallax without a pop.
 ## Event Horizon (`/lab/event-horizon/`)
 
 No meshes, no assets — the entire image is one fragment shader. Each pixel fires
-a ray that gets bent by a simple 1/r² gravitational pull over 44 integration
+a ray that gets bent by a simple 1/r² gravitational pull over 64 integration
 steps. Along the way the march checks three things: capture (the ray falls past
 the event horizon), crossings of the accretion disk plane, and crossings of a
 "code sheet" curtain that gets lensed into the hole.
 
 ```glsl
-// bend the ray, 44 steps per pixel
+// bend the ray, 64 steps per pixel
 vec3 acc = -1.55 * p / (r2 * r);
 v = normalize(v + acc * dt);
 ```
@@ -65,7 +65,7 @@ float omega = 2.2 * pow(rd, -1.5); // inner material orbits faster
 
 ## Sonic Terrain (`/lab/sonic-terrain/`)
 
-The terrain is a line-mesh grid: 64 frequency bins across, 110 rows of scrolling
+The terrain is a line-mesh grid: 96 frequency bins across, 160 rows of scrolling
 history receding to the horizon. Each animation frame reads the AnalyserNode
 (2048-point FFT), maps bins on a log-ish curve so the bass band stays wide the
 way the ear hears it, applies attack-fast / release-slow smoothing, and pushes a
@@ -100,13 +100,13 @@ const semis = 12 * Math.floor(steps / PENTA.length) + PENTA[steps % PENTA.length
    ROWS 110 → 160 — first ox-alpha/OpenCode ticket). Event Horizon done
    (STEPS 44 → 64, pixel-ratio cap 1.75 → 2 — resolves a truer, larger shadow;
    ~1.9× GPU cost on retina, watch the FPS meter).
-2. **Adaptive/mobile quality — separate ticket.** Lower-resolution fallbacks for
-   weaker hardware, decided after a performance testing pass.
-3. **Design-note UI.** Mock-up for the discreet per-page button + panel that will
-   hold the notes above.
-4. **Sonic Terrain spectrum mapping.** Feed the denser 96-column grid more of the
-   FFT range: raise the `* 520` multiplier in `readAnalyserRow` toward ~700,
-   keeping the log-ish curve shape.
-5. **Stretch ticket (later, ox-alpha):** a full interactive walk-through 3D scene
-   as a new lab page. First open-ended build test for the model — scope it when
-   tickets 2–4 are done.
+2. **Adaptive/mobile quality — done** (ox-alpha ticket): shared
+   `src/lab-quality.ts` FPS watcher steps weak hardware down through per-page
+   tiers; full-quality visuals unchanged. Threshold (~50 fps sustained) still to
+   be calibrated against real devices.
+3. **Design-note UI — done** (ox-alpha ticket + reviewer fixups): discreet
+   per-page button + panel holding the notes above, each styled to its page's
+   design language.
+4. **Sonic Terrain spectrum mapping — done:** multiplier 520 → 700.
+5. **Stretch ticket (next, ox-alpha):** a full interactive walk-through 3D scene
+   as a new lab page — first open-ended build test. Scope it with Adam.
