@@ -1,0 +1,181 @@
+/* ————— Walkthrough — foundation build ————— */
+
+:root {
+  --bg: #191713;
+  --ink: #23211c;
+  --bone: #ece7db;
+  --brass: #c9a76a;
+  --brass-deep: #8a6b35;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  --serif: Georgia, "Times New Roman", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+#wt-gl {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+/* ————— HUD chrome ————— */
+
+.hud {
+  position: fixed;
+  z-index: 20;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(35, 33, 28, 0.6);
+  user-select: none;
+}
+
+.hud b {
+  color: rgba(35, 33, 28, 0.92);
+  font-weight: 600;
+}
+
+.hud .accent {
+  color: var(--brass-deep);
+}
+
+.hud-tl { top: 28px; left: 32px; }
+.hud-tr { top: 28px; right: 32px; text-align: right; }
+.hud-bl { bottom: 28px; left: 32px; }
+.hud-br { bottom: 28px; right: 32px; text-align: right; }
+
+a.hud {
+  text-decoration: none;
+  color: rgba(35, 33, 28, 0.6);
+  transition: color 0.3s ease;
+}
+
+a.hud:hover {
+  color: var(--brass-deep);
+}
+
+/* ————— entry overlay ————— */
+
+.wt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(25, 23, 19, 0.18);
+  cursor: pointer;
+}
+
+.wt-overlay[hidden] {
+  display: none;
+}
+
+.wt-card {
+  background: rgba(22, 20, 16, 0.88);
+  border: 1px solid rgba(236, 231, 219, 0.16);
+  padding: 38px 44px 34px;
+  max-width: min(440px, 100%);
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+.wt-kicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin: 0 0 14px;
+}
+
+.wt-card h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(26px, 4vw, 38px);
+  letter-spacing: 0.01em;
+  color: var(--bone);
+  margin: 0 0 14px;
+}
+
+.wt-help {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+  color: rgba(236, 231, 219, 0.66);
+  margin: 0 0 26px;
+}
+
+.wt-enter {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone);
+  background: transparent;
+  border: 1px solid rgba(236, 231, 219, 0.35);
+  padding: 11px 26px;
+  cursor: pointer;
+  transition: border-color 0.3s ease, color 0.3s ease;
+}
+
+.wt-enter:hover,
+.wt-enter:focus-visible {
+  border-color: var(--brass);
+  color: var(--brass);
+  outline: none;
+}
+
+/* ————— entrance ————— */
+
+@media (prefers-reduced-motion: no-preference) {
+  #wt-gl {
+    animation: wt-fade 1.6s ease-out both;
+  }
+  .hud {
+    animation: wt-rise 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .hud-tr { animation-delay: 0.08s; }
+  .hud-bl { animation-delay: 0.16s; }
+  .hud-br { animation-delay: 0.24s; }
+  .wt-card {
+    animation: wt-rise 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  }
+}
+
+@keyframes wt-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes wt-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ————— small screens ————— */
+
+@media (max-width: 640px) {
+  .hud-bl,
+  .hud-br {
+    display: none;
+  }
+  .hud-tl { top: 20px; left: 20px; }
+  .hud-tr { top: 20px; right: 20px; }
+  .wt-card { padding: 30px 26px 28px; }
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Walkthrough — a first-person prototype scene in WebGL. Foundation build by Adam Roch." />
+    <meta name="theme-color" content="#c0b8a8" />
+    <title>Walkthrough — The Lab — Adam Roch</title>
+  </head>
+  <body>
+    <canvas id="wt-gl"></canvas>
+
+    <a class="hud hud-tl" href="/" aria-label="Back to adamroch.com"><b>ADAM</b> — THE LAB</a>
+    <div class="hud hud-tr">[ WALKTHROUGH — <span class="accent">FOUNDATION</span> ]</div>
+    <div class="hud hud-bl"><span id="wt-fps">FPS —</span> · <span id="wt-quality">QUALITY 0</span></div>
+    <div class="hud hud-br">THE LAB AS A <span class="accent">PLACE</span>, NOT A PAGE</div>
+
+    <div class="wt-overlay" id="wt-overlay">
+      <section class="wt-card" aria-label="Enter the walkthrough">
+        <p class="wt-kicker">First-Person Prototype</p>
+        <h1>The Walkthrough</h1>
+        <p class="wt-help" id="wt-overlay-help">WASD to walk &middot; mouse to look &middot; Shift to sprint.</p>
+        <button class="wt-enter" id="wt-enter" type="button">Step in</button>
+      </section>
+    </div>
+
+    <script type="module" src="/src/walkthrough/main.ts"></script>
+  </body>
+</html>
