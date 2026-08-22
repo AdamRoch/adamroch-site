@@ -12,11 +12,34 @@
 
     <a class="hud hud-tl" href="/" aria-label="Back to adamroch.com"><b>ADAM</b> — THE LAB</a>
     <div class="hud hud-tr">[ WALKTHROUGH — <span class="accent">FOUNDATION</span> ]</div>
+    <button class="hud hud-note" id="wt-note-btn" type="button" aria-expanded="false" aria-controls="wt-note-panel">[ DESIGN NOTE ]</button>
     <div class="hud hud-bl"><span id="wt-fps">FPS —</span> · <span id="wt-quality">QUALITY 0</span></div>
     <div class="hud hud-br">THE LAB AS A <span class="accent">PLACE</span>, NOT A PAGE</div>
 
     <button class="hud hud-sound" id="wt-sound" type="button" aria-label="Toggle sound">[ SOUND <span id="wt-sound-state">ON</span> ]</button>
     <p class="wt-hint" id="wt-hint">the markers answer to stillness</p>
+
+    <aside class="wt-note-panel" id="wt-note-panel" aria-label="Design note — how this page is built" hidden>
+      <h2>How it's built</h2>
+      <p>
+        The scene is a first-person walk on a dusk beach. One height function drives both physics
+        and rendering — the walker and the ground mesh sample the same math, so feet and sand never
+        disagree. The colossus is a CC0 photogrammetry scan (Poly Haven, marble_bust_01), normalized
+        by bounding box to monumental scale, tipped onto its cheek, and seated a third into the
+        sand. It has pressed a shallow Gaussian bowl into the dunes around itself.
+      </p>
+      <pre><code>let h = WATER_Y + inland * 0.045; // the beach falls toward the water
+h = Math.min(h, 2.1); // a dune crest caps the climb inland
+h -= Math.exp(-(hx * hx + hz * hz) / 96) * 0.34; // the colossus's bowl</code></pre>
+      <p>
+        The sea is a standard material with a scrolling normal map baked from layered sine swell at
+        boot — this sea is asleep. The wet-sand band is an onBeforeCompile patch that darkens and
+        glosses the ground near the waterline. Collision is radial push-out against cylinder
+        colliders. Audio is pure WebAudio: filtered-noise surf, a drone that gains near the head, a
+        horn when every resonance stone is lit. The easter egg is at the waterline, looking at the
+        sun.
+      </p>
+    </aside>
 
     <div id="wt-white" aria-hidden="true">
       <p id="wt-white-line">the horizon was never a wall.</p>
