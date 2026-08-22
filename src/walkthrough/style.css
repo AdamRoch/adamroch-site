@@ -67,6 +67,79 @@ a.hud:hover {
   color: var(--brass-deep);
 }
 
+/* ————— sound toggle ————— */
+
+.hud-sound {
+  bottom: 50px;
+  left: 32px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.hud-sound:hover,
+.hud-sound:focus-visible {
+  color: var(--brass-deep);
+  outline: none;
+}
+
+/* ————— the markers' hint ————— */
+
+.wt-hint {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: rgba(35, 33, 28, 0.62);
+  opacity: 0;
+  transition: opacity 1.8s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.wt-hint.show {
+  opacity: 1;
+}
+
+/* ————— the whiteout ————— */
+
+#wt-white {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fbf7ee;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#wt-white-line {
+  margin: 0;
+  padding: 24px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(18px, 2.4vw, 26px);
+  letter-spacing: 0.04em;
+  color: rgba(38, 35, 29, 0.82);
+  opacity: 0;
+  transition: opacity 1.4s ease;
+  text-align: center;
+}
+
+#wt-white-line.show {
+  opacity: 1;
+}
+
 /* ————— entry overlay ————— */
 
 .wt-overlay {
@@ -172,10 +245,17 @@ a.hud:hover {
 
 @media (max-width: 640px) {
   .hud-bl,
-  .hud-br {
+  .hud-br,
+  .hud-sound {
     display: none;
   }
   .hud-tl { top: 20px; left: 20px; }
   .hud-tr { top: 20px; right: 20px; }
   .wt-card { padding: 30px 26px 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-sound {
+    display: none;
+  }
 }

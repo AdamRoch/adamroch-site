@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { watchQuality } from '../lab-quality';
+import {
+  setEnabled as setAudioEnabled,
+  setHeadCloseness,
+  chargeTone,
+  chime,
+  duck,
+  horn,
+} from './audio';
 import './style.css';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -123,7 +131,8 @@ renderer.toneMappingExposure = 1.08;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(FOG_COLOR);
-scene.fog = new THREE.Fog(FOG_COLOR, 16, 175);
+const beachFog = new THREE.Fog(FOG_COLOR, 16, 175);
+scene.fog = beachFog;
 
 const EYE_HEIGHT = 1.7;
 const camera = new THREE.PerspectiveCamera(
@@ -402,6 +411,206 @@ new GLTFLoader()
   })
   .catch(() => console.warn('[walkthrough] colossus failed to load'));
 
+/* ————— resonance markers: standing stones that answer stillness ————— */
+
+const MARKER_RADIUS = 1.6;
+const CHARGE_TIME = 2.5;
+const DRAIN_TIME = 1.1;
+
+interface Marker {
+  seamMat: THREE.MeshStandardMaterial;
+  x: number;
+  z: number;
+  charge: number;
+  locked: boolean;
+}
+const markers: Marker[] = [];
+
+function buildMarker(x: number, z: number, spin: number): void {
+  const stone = new THREE.Group();
+
+  // a rough pentagon slab, slim as a standing stone gets
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.19, 2.2, 5),
+    new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.95, flatShading: true })
+  );
+  body.castShadow = true;
+  body.receiveShadow = true;
+  body.rotation.y = spin;
+  stone.add(body);
+
+  // the seam rides one pentagon face — dark until the stillness fills it
+  const seamMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0908,
+    emissive: 0xe8b77a,
+    emissiveIntensity: 0.35,
+    roughness: 0.6,
+  });
+  const faceAngle = spin + Math.PI / 5; // a face centre of the pentagon
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.5, 0.09), seamMat);
+  seam.position.set(Math.sin(faceAngle) * 0.13, 0.12, Math.cos(faceAngle) * 0.13);
+  seam.rotation.y = faceAngle;
+  stone.add(seam);
+
+  stone.position.set(x, groundHeight(x, z) + 1.04, z); // settles a thumb into the sand
+  stone.rotation.z = 0.02;
+  scene.add(stone);
+
+  collidables.push({ x, z, r: 0.38 });
+  markers.push({ seamMat, x, z, charge: 0, locked: false });
+}
+
+buildMarker(-7, 6.5, 0.4); // up by the dune crest
+buildMarker(-15, -2.5, 2.1); // mid-beach
+buildMarker(-23.5, -17, 4.4); // past the head, near the waterline
+
+const dbgWt = window as unknown as { __wtDebug?: { markers?: Marker[]; cam?: THREE.Camera } };
+dbgWt.__wtDebug = dbgWt.__wtDebug ?? {};
+dbgWt.__wtDebug.markers = markers;
+dbgWt.__wtDebug.cam = camera;
+
+/* ————— the rite: when all three have answered ————— */
+
+const SKY_BASE = new THREE.Color(FOG_COLOR);
+const SKY_WARM = new THREE.Color(0xf4c493);
+const SUN_BASE_SCALE = 150;
+const SUN_BASE_INTENSITY = sun.intensity;
+const HEMI_BASE = hemi.intensity;
+const RITE_DUR = 7;
+const rite = { active: false, t: 0 };
+let riteDone = false;
+
+function beginCompletion(): void {
+  rite.active = true;
+  rite.t = 0;
+  horn();
+  hideHint();
+}
+
+function updateRite(dt: number): void {
+  if (!rite.active) return;
+  rite.t += dt;
+  const p = Math.min(rite.t / RITE_DUR, 1);
+  const env = Math.sin(p * Math.PI); // swells, then settles
+  const warm = SKY_BASE.clone().lerp(SKY_WARM, env * 0.5);
+  (scene.background as THREE.Color).copy(warm);
+  beachFog.color.copy(warm);
+  sunGlow.scale.set(SUN_BASE_SCALE * (1 + env * 1.1), SUN_BASE_SCALE * (1 + env * 1.1), 1);
+  sun.intensity = SUN_BASE_INTENSITY + env * 1.4;
+  hemi.intensity = HEMI_BASE + env * 0.3;
+  if (p >= 1) {
+    rite.active = false;
+    (scene.background as THREE.Color).copy(SKY_BASE);
+    beachFog.color.copy(SKY_BASE);
+    sunGlow.scale.set(SUN_BASE_SCALE, SUN_BASE_SCALE, 1);
+    sun.intensity = SUN_BASE_INTENSITY;
+    hemi.intensity = HEMI_BASE;
+  }
+}
+
+function updateMarkers(dt: number): void {
+  let charging: number | null = null;
+
+  markers.forEach((m, i) => {
+    const d = Math.hypot(camera.position.x - m.x, camera.position.z - m.z);
+    if (!m.locked) {
+      if (d < MARKER_RADIUS) {
+        const prev = m.charge;
+        m.charge = Math.min(1, m.charge + dt / CHARGE_TIME);
+        charging = m.charge;
+        if (prev === 0) showHint();
+        if (m.charge >= 1) {
+          m.locked = true;
+          chime(i);
+          if (markers.every((q) => q.locked) && !riteDone) {
+            riteDone = true;
+            beginCompletion();
+          }
+        }
+      } else {
+        m.charge = Math.max(0, m.charge - dt / DRAIN_TIME);
+      }
+    }
+    m.seamMat.emissiveIntensity = m.locked ? 3.4 : 0.35 + m.charge * 2.9;
+  });
+
+  chargeTone(charging);
+}
+
+/* ————— the sun's regard: hold its gaze from the shallows ————— */
+
+const whiteEl = document.getElementById('wt-white');
+const whiteLine = document.getElementById('wt-white-line');
+const camDir = new THREE.Vector3();
+const toSun = new THREE.Vector3();
+const SUN_FILL_SCALE = 1450;
+const BASE_EXPOSURE = 1.08;
+
+type EggPhase = 'idle' | 'rise' | 'hold' | 'set';
+const egg: { phase: EggPhase; t: number; gaze: number; cool: number } = {
+  phase: 'idle',
+  t: 0,
+  gaze: 0,
+  cool: 0,
+};
+
+function updateEgg(dt: number): void {
+  if (egg.phase === 'idle') {
+    egg.cool = Math.max(0, egg.cool - dt);
+    const inShallows = camera.position.x <= SHORE_X + 0.4;
+    let aimed = false;
+    if (locked && inShallows && egg.cool === 0) {
+      camera.getWorldDirection(camDir);
+      toSun.copy(sunGlow.position).sub(camera.position).normalize();
+      aimed = camDir.dot(toSun) > 0.9975; // a tight four degrees
+    }
+    egg.gaze = aimed ? egg.gaze + dt : Math.max(0, egg.gaze - dt * 2.5);
+    if (egg.gaze >= 3) {
+      egg.phase = 'rise';
+      egg.t = 0;
+      duck(0.18, 1.0); // the world holds its breath
+    }
+    return;
+  }
+
+  egg.t += dt;
+  if (egg.phase === 'rise') {
+    const p = Math.min(egg.t / 2.4, 1);
+    const s = SUN_BASE_SCALE + (SUN_FILL_SCALE - SUN_BASE_SCALE) * p * p;
+    sunGlow.scale.set(s, s, 1);
+    const white = THREE.MathUtils.smoothstep(p, 0.55, 1);
+    if (whiteEl) whiteEl.style.opacity = String(white);
+    renderer.toneMappingExposure = BASE_EXPOSURE + white * 0.25;
+    if (p >= 1) {
+      egg.phase = 'hold';
+      egg.t = 0;
+      whiteLine?.classList.add('show');
+    }
+  } else if (egg.phase === 'hold') {
+    if (egg.t >= 4.2) {
+      whiteLine?.classList.remove('show');
+      egg.phase = 'set';
+      egg.t = 0;
+      duck(1, 1.8);
+    }
+  } else {
+    const p = Math.min(egg.t / 1.9, 1);
+    const fade = Math.max(0, 1 - egg.t / 0.9);
+    if (whiteEl) whiteEl.style.opacity = String(fade);
+    const ease = 1 - (1 - p) * (1 - p);
+    const s = SUN_FILL_SCALE + (SUN_BASE_SCALE - SUN_FILL_SCALE) * ease;
+    sunGlow.scale.set(s, s, 1);
+    renderer.toneMappingExposure = BASE_EXPOSURE + (1 - p) * 0.25;
+    if (p >= 1) {
+      egg.phase = 'idle';
+      egg.gaze = 0;
+      egg.cool = 6; // the sun does not repeat itself quickly
+      sunGlow.scale.set(SUN_BASE_SCALE, SUN_BASE_SCALE, 1);
+      renderer.toneMappingExposure = BASE_EXPOSURE;
+    }
+  }
+}
+
 /* ————— first-person controls: pointer lock, wasd, sprint, damped velocity ————— */
 
 const WALK_SPEED = 5.0;
@@ -447,6 +656,7 @@ overlay?.addEventListener('click', () => {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   if (overlay) overlay.hidden = locked;
+  if (locked && !reduced) applySound(); // entry is the user gesture audio needs
   if (!locked) {
     clearKeys();
     velocity.set(0, 0, 0);
@@ -485,6 +695,36 @@ window.addEventListener('keyup', (e) => {
 });
 
 window.addEventListener('blur', clearKeys);
+
+/* ————— sound & the quiet hint ————— */
+
+const soundBtn = document.getElementById('wt-sound');
+const soundState = document.getElementById('wt-sound-state');
+const hintEl = document.getElementById('wt-hint');
+let soundWanted = true;
+let hintShown = false;
+
+function applySound(): void {
+  if (reduced) return; // reduced motion hears nothing, by design
+  setAudioEnabled(soundWanted);
+  if (soundState) soundState.textContent = soundWanted ? 'ON' : 'OFF';
+}
+
+soundBtn?.addEventListener('click', () => {
+  soundWanted = !soundWanted;
+  applySound();
+});
+
+function showHint(): void {
+  if (hintShown || !hintEl) return;
+  hintShown = true;
+  hintEl.classList.add('show');
+}
+
+function hideHint(): void {
+  hintEl?.classList.remove('show');
+}
+
 
 const forward = new THREE.Vector3();
 const strafe = new THREE.Vector3();
@@ -545,6 +785,14 @@ function frame(): void {
   const dt = Math.min(timer.getDelta(), 0.05);
 
   moveWalker(dt);
+
+  // the head's low note swells as you approach it
+  const dh = Math.hypot(camera.position.x - HEAD_X, camera.position.z - HEAD_Z);
+  setHeadCloseness(1 - THREE.MathUtils.smoothstep(dh, 5, 44));
+
+  if (locked) updateMarkers(dt);
+  updateRite(dt);
+  updateEgg(dt);
 
   // the sea breathes slowly — a long drift across the swell normals
   const t = timer.getElapsed();
