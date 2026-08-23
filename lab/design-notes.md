@@ -111,8 +111,12 @@ sine swell at boot — this sea is asleep. The wet-sand band is an
 `onBeforeCompile` patch that darkens and glosses the ground near the
 waterline. Collision is radial push-out against cylinder colliders. Audio is
 pure WebAudio: filtered-noise surf, a drone that gains near the head, a horn
-when every resonance stone is lit. The easter egg is at the waterline, looking
-at the sun.
+when every resonance stone is lit. The easter egg is at the waterline: hold the
+sun's gaze for three seconds and the moon falls — dusk sinks to night, eight
+hundred seeded stars come out, and an original low-poly moon (canvas-painted
+grin, glowing eye meshes seated by exact equirect math) accelerates into the
+sky on an exponential curve behind a building WebAudio rumble until the frame
+cuts to white.
 
 ---
 
@@ -148,3 +152,12 @@ at the sun.
    pull-quotes, canvas hairline plate, colophon with its own note panel. Built
    by ox-alpha (essay copy included); verified at five scroll depths via a CDP
    scroll-screenshot rig (.tmp/scroll-shot.mjs).
+8. **Moonfall easter egg — done, live.** The walkthrough's sun-gaze payoff is
+   now a crashing moon (ox-alpha, two passes — first pass had the eye meshes
+   mis-seated off the painted sockets, caught by the screenshot rig). Original
+   procedural moon, no ripped assets: SphereGeometry with seeded crater
+   displacement, canvas face texture (sockets, blocky grin), emissive eye
+   meshes seated by exact equirect math, dusk→night transition with 800-star
+   field, rumble + 45Hz sub + falling-pitch boom in pure WebAudio, additive
+   camera shake that never touches yaw/pitch. Ships with an
+   ?eggtest=<phase>&t=<0..1> hook for headless verification.
