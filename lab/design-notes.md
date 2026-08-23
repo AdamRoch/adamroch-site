@@ -111,7 +111,9 @@ sine swell at boot — this sea is asleep. The wet-sand band is an
 `onBeforeCompile` patch that darkens and glosses the ground near the
 waterline. Collision is radial push-out against cylinder colliders. Audio is
 pure WebAudio: filtered-noise surf, a drone that gains near the head, a horn
-when every resonance stone is lit. The easter egg is at the waterline: hold the
+when every resonance stone is lit — and a hand-lettered wooden sign that
+rumbles up out of the sand once they all are, warning you off the waterline.
+The easter egg is at the waterline anyway: hold the
 sun's gaze for three seconds and the moon falls — dusk sinks to night, eight
 hundred seeded stars come out, and an original low-poly moon (canvas-painted
 grin, glowing eye meshes seated by exact equirect math) accelerates into the
@@ -161,3 +163,12 @@ cuts to white.
    field, rumble + 45Hz sub + falling-pitch boom in pure WebAudio, additive
    camera shake that never touches yaw/pitch. Ships with an
    ?eggtest=<phase>&t=<0..1> hook for headless verification.
+
+9. **Omen sign — done, live.** After the completion rite settles, a weathered
+   wooden sign rumbles up out of the sand 4m in front of the player (2.8s
+   ease-out-back rise, tilt wobble, additive ground shake, low rumble + wooden
+   thunk), hand-lettered with "don't stand in the shallows / and stare at the
+   sun" — the discoverability bridge to the moonfall egg. All procedural
+   (seeded canvas wood grain + plank face, per-letter jitter). ?signtest hook
+   for screenshots; reviewer fixup — the hook's camera initially stood off the
+   board's unlettered back.
