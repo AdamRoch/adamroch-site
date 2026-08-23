@@ -11,6 +11,7 @@ import {
   horn,
   setRumble,
   stopRumble,
+  thunk,
 } from './audio';
 import './style.css';
 
@@ -505,6 +506,7 @@ function updateRite(dt: number): void {
     sunGlow.scale.set(SUN_BASE_SCALE, SUN_BASE_SCALE, 1);
     sun.intensity = SUN_BASE_INTENSITY;
     hemi.intensity = HEMI_BASE;
+    beginOmenSign(); // the rite has settled — now the sand answers
   }
 }
 
@@ -1073,6 +1075,289 @@ function updateEgg(dt: number): void {
   }
 }
 
+/* ————— the omen sign: it waits under the sand until the rite is done ————— */
+
+const SIGN_RISE_DUR = 2.8;
+const SIGN_BOARD_W = 1.4;
+const SIGN_BOARD_H = 0.7;
+const SIGN_BOARD_Y = 1.55; // board centre reads at eye height
+const SIGN_POST_H = 1.95;
+const SIGN_BURIAL = 2.1; // fully buried, the board's top sits a hand below the sand
+const SIGN_TILT_START = THREE.MathUtils.degToRad(6);
+const SIGN_TILT_END = THREE.MathUtils.degToRad(1.5);
+
+// driftwood — vertical grain streaks wandering over a grey-brown base
+function makeWoodTexture(): THREE.CanvasTexture {
+  const S = 256;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return new THREE.CanvasTexture(cv);
+
+  let s = 417;
+  const rnd = (): number => {
+    s = (s * 16807) % 2147483647;
+    return s / 2147483647;
+  };
+
+  ctx.fillStyle = '#776b5c';
+  ctx.fillRect(0, 0, S, S);
+
+  for (let i = 0; i < 90; i++) {
+    const x0 = rnd() * S;
+    ctx.strokeStyle =
+      rnd() > 0.5
+        ? `rgba(84,72,58,${0.08 + rnd() * 0.18})`
+        : `rgba(148,136,117,${0.07 + rnd() * 0.15})`;
+    ctx.lineWidth = 0.8 + rnd() * 2.6;
+    ctx.beginPath();
+    let x = x0;
+    ctx.moveTo(x, -8);
+    for (let y = 14; y <= S + 16; y += 22) {
+      x += (rnd() - 0.5) * 7;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // a few dark knots and pale scuffs so it reads as wood, not wallpaper
+  for (let i = 0; i < 8; i++) {
+    const x = rnd() * S;
+    const y = rnd() * S;
+    ctx.fillStyle = `rgba(58,48,38,${0.18 + rnd() * 0.2})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 2 + rnd() * 3.4, 4 + rnd() * 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+// the board face: three weathered planks, hand-lettered with an uneasy hand.
+// every jitter comes from the seeded rng — the same sign every load
+function paintSignFace(): THREE.CanvasTexture {
+  const W = 1024;
+  const H = 512;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return new THREE.CanvasTexture(cv);
+
+  let s = 20261;
+  const rnd = (): number => {
+    s = (s * 16807) % 2147483647;
+    return s / 2147483647;
+  };
+
+  // pale silver-brown plank base with broad soft mottling
+  ctx.fillStyle = '#8d8172';
+  ctx.fillRect(0, 0, W, H);
+  for (let i = 0; i < 44; i++) {
+    const x = rnd() * W;
+    const y = rnd() * H;
+    const r = 50 + rnd() * 140;
+    const tone = rnd() > 0.5 ? '158,146,126' : '98,88,74';
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${tone},0.13)`);
+    g.addColorStop(1, `rgba(${tone},0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
+  // long horizontal grain strokes, wandering like the wood grew
+  for (let i = 0; i < 110; i++) {
+    let y = rnd() * H;
+    ctx.strokeStyle =
+      rnd() > 0.5
+        ? `rgba(96,86,70,${0.06 + rnd() * 0.13})`
+        : `rgba(176,164,142,${0.06 + rnd() * 0.11})`;
+    ctx.lineWidth = 0.8 + rnd() * 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-8, y);
+    for (let x = 18; x <= W + 16; x += 26) {
+      y += (rnd() - 0.5) * 5;
+      ctx.lineTo(x, Math.max(0, Math.min(H, y)));
+    }
+    ctx.stroke();
+  }
+
+  // two seams split the face into three boards — shadow gap under a pale lip
+  for (const sy of [H / 3, (H * 2) / 3]) {
+    ctx.fillStyle = 'rgba(43,33,23,0.5)';
+    ctx.fillRect(0, sy - 3, W, 6);
+    ctx.fillStyle = 'rgba(214,200,174,0.22)';
+    ctx.fillRect(0, sy + 3, W, 2);
+  }
+
+  // rusted nails near the plank ends
+  for (const ny of [30, H / 3 + 30, (H * 2) / 3 + 30, H - 30]) {
+    for (const nx of [36, W - 36]) {
+      ctx.fillStyle = 'rgba(52,42,32,0.85)';
+      ctx.beginPath();
+      ctx.arc(nx + (rnd() - 0.5) * 4, ny + (rnd() - 0.5) * 4, 4.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(188,178,158,0.5)';
+      ctx.beginPath();
+      ctx.arc(nx - 1.2, ny - 1.4, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // the warning — lowercase italic serif, letter by letter, each one slightly
+  // off its neighbour in position and tilt; the first line auto-fits its width
+  const lines = ["don't stand in the shallows", 'and stare at the sun'];
+  const ink = '#2e2318';
+  const avail = W - 88;
+
+  lines.forEach((line, li) => {
+    const target = li === 0 ? 108 : 120;
+    ctx.font = `italic bold ${target}px Georgia, "Times New Roman", serif`;
+    let raw = 0;
+    for (const ch of line) raw += ctx.measureText(ch).width;
+    const px = Math.round(target * Math.min(1, avail / raw));
+    ctx.font = `italic bold ${px}px Georgia, "Times New Roman", serif`;
+
+    let total = 0;
+    for (const ch of line) total += ctx.measureText(ch).width;
+    let pen = (W - total) / 2;
+    const baseY = li === 0 ? H * 0.38 : H * 0.76;
+
+    ctx.fillStyle = ink;
+    for (const ch of line) {
+      const cw = ctx.measureText(ch).width;
+      ctx.save();
+      ctx.translate(pen + cw / 2 + (rnd() - 0.5) * 6, baseY + (rnd() - 0.5) * 10);
+      ctx.rotate((rnd() - 0.5) * 0.08);
+      ctx.fillText(ch, -cw / 2, 0);
+      ctx.restore();
+      pen += cw;
+    }
+  });
+
+  // sun scorch and sand scuff laid over everything, ink included — it has stood a while
+  for (let i = 0; i < 26; i++) {
+    const x = rnd() * W;
+    const y = rnd() * H;
+    const r = 20 + rnd() * 70;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(
+      0,
+      `rgba(${rnd() > 0.5 ? '141,129,114' : '226,212,184'},${0.05 + rnd() * 0.09})`
+    );
+    g.addColorStop(1, 'rgba(141,129,114,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+function buildOmenSign(): THREE.Group {
+  const group = new THREE.Group();
+
+  const woodMat = new THREE.MeshStandardMaterial({ map: makeWoodTexture(), roughness: 0.95 });
+  const faceMat = new THREE.MeshStandardMaterial({ map: paintSignFace(), roughness: 0.9 });
+
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, SIGN_POST_H, 0.16), woodMat);
+  post.position.y = SIGN_POST_H / 2 - 0.04; // sinks a thumb into the sand line
+  post.castShadow = true;
+  post.receiveShadow = true;
+  group.add(post);
+
+  // [+x, -x, +y, -y, +z, -z] — only the front earns the lettering
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(SIGN_BOARD_W, SIGN_BOARD_H, 0.07),
+    [woodMat, woodMat, woodMat, woodMat, faceMat, woodMat]
+  );
+  board.position.set(0, SIGN_BOARD_Y, 0.09);
+  board.castShadow = true;
+  board.receiveShadow = true;
+  group.add(board);
+
+  return group;
+}
+
+const omen = { spawned: false, rising: false, t: 0, rumbleCut: false, baseY: 0 };
+const omenSign = buildOmenSign();
+omenSign.visible = false;
+scene.add(omenSign);
+
+// true when the post would crowd a collider — the head counts even mid-load
+function omenSiteTaken(x: number, z: number): boolean {
+  if (Math.hypot(x - HEAD_X, z - HEAD_Z) < 2.7 + 1.4) return true;
+  for (const c of collidables) {
+    if (Math.hypot(x - c.x, z - c.z) < c.r + 1.4) return true;
+  }
+  return false;
+}
+
+// the sign rises exactly once, from wherever the walker faces when the rite settles
+function beginOmenSign(): void {
+  if (omen.spawned) return;
+  omen.spawned = true;
+
+  camera.getWorldDirection(camDir);
+  const flat = Math.hypot(camDir.x, camDir.z) || 1;
+  let sx = camera.position.x + (camDir.x / flat) * 4;
+  let sz = camera.position.z + (camDir.z / flat) * 4;
+
+  // dry sand only — a reach inland of the waterline, never up past the crest line
+  sx = THREE.MathUtils.clamp(sx, SHORE_X + 1.5, 0);
+  for (let i = 0; i < 2 && omenSiteTaken(sx, sz); i++) sz += 2.5; // sidestep crowding, twice max
+
+  omen.baseY = groundHeight(sx, sz);
+  omenSign.position.set(sx, omen.baseY, sz);
+  omenSign.rotation.set(0, Math.atan2(camera.position.x - sx, camera.position.z - sz), 0);
+  omenSign.visible = true;
+  collidables.push({ x: sx, z: sz, r: 0.35 });
+
+  omen.rising = true;
+  omen.t = 0;
+  omen.rumbleCut = false;
+  setRumble(0.35);
+}
+
+// seats the sign at emergence progress p — shared by the live rise and the test hook
+function poseOmenSign(p: number): void {
+  const u = p - 1;
+  const back = 1 + 2.70158 * u * u * u + 1.70158 * u * u; // ease-out-back: over, then seated
+  omenSign.position.y = omen.baseY + SIGN_BURIAL * (back - 1);
+
+  // tilt settles from a hard lean to a weathered cant on a damped wobble
+  const wobble = Math.sin(p * Math.PI * 3.5) * Math.exp(-p * 3.2) * 0.05;
+  omenSign.rotation.z =
+    THREE.MathUtils.lerp(SIGN_TILT_START, SIGN_TILT_END, THREE.MathUtils.smoothstep(p, 0, 1)) +
+    wobble;
+}
+
+function updateSign(dt: number): void {
+  if (!omen.rising) return;
+  omen.t += dt;
+  const p = Math.min(omen.t / SIGN_RISE_DUR, 1);
+  poseOmenSign(p);
+
+  // shares the egg's additive-shake channel — the ground trembling as it climbs
+  shakeAmp = 0.004 * (1 - p);
+
+  if (!omen.rumbleCut && p >= 0.8) {
+    omen.rumbleCut = true;
+    stopRumble(0.6);
+  }
+  if (p >= 1) {
+    omen.rising = false;
+    shakeAmp = 0;
+    poseOmenSign(1);
+    thunk();
+  }
+}
+
 /* ————— first-person controls: pointer lock, wasd, sprint, damped velocity ————— */
 
 const WALK_SPEED = 5.0;
@@ -1223,6 +1508,48 @@ if (eggTest) {
   }
 }
 
+/* ————— test hook: ?signtest=<up|rise>[&t=<0..1>] —————
+   Raises the sign without the rite or pointer lock, frozen for screenshots;
+   works under reduced motion too, where the single still frame carries it. */
+
+const signTest = eggQuery.get('signtest');
+if (signTest) {
+  overlay?.setAttribute('hidden', '');
+
+  const sx = -11;
+  const sz = 3;
+  omen.baseY = groundHeight(sx, sz);
+  omenSign.position.set(sx, omen.baseY, sz);
+  // the board faces the sun quarter — its warning points at what it warns about
+  omenSign.rotation.set(0, Math.atan2(sunGlow.position.x - sx, sunGlow.position.z - sz), 0);
+  omenSign.visible = true;
+
+  const rawT = eggQuery.get('t');
+  const p =
+    signTest === 'up'
+      ? 1
+      : rawT === null
+        ? 0.5
+        : THREE.MathUtils.clamp(Number(rawT) || 0, 0, 1);
+  poseOmenSign(p);
+
+  // the camera stands 2.6m off the board's face, eyes on its centre
+  const faceX = Math.sin(omenSign.rotation.y);
+  const faceZ = Math.cos(omenSign.rotation.y);
+  camera.position.set(sx + faceX * 2.6, 0, sz + faceZ * 2.6);
+  camera.position.y = groundHeight(camera.position.x, camera.position.z) + EYE_HEIGHT;
+  const signAim = new THREE.Vector3(
+    sx - camera.position.x,
+    omen.baseY + SIGN_BOARD_Y - camera.position.y,
+    sz - camera.position.z
+  ).normalize();
+  yaw = Math.atan2(-signAim.x, -signAim.z);
+  pitch = Math.asin(THREE.MathUtils.clamp(signAim.y, -1, 1));
+  camera.rotation.set(pitch, yaw, 0);
+
+  shakeAmp = 0; // a held frame does not tremble
+}
+
 /* ————— sound & the quiet hint ————— */
 
 const soundBtn = document.getElementById('wt-sound');
@@ -1343,6 +1670,7 @@ function frame(): void {
   if (locked) updateMarkers(dt);
   updateRite(dt);
   updateEgg(dt);
+  updateSign(dt); // after the egg — during its brief window the sign owns the shake
 
   // the fall shakes the eye — additive offsets only, the look angles stay clean
   if (shakeAmp > 0.0002) {

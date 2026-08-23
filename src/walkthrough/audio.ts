@@ -1,6 +1,6 @@
 /* ————— Walkthrough audio engine —————
    Pure WebAudio: surf on a filtered noise bed, one low note for the head,
-   marker charge tones, chimes, and a single deep horn. No assets. */
+   marker charge tones, chimes, a single deep horn, one wooden thunk. No assets. */
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -263,4 +263,41 @@ export function horn(): void {
   }
   lp.connect(g);
   g.connect(master);
+}
+
+// the sign seats: a lowpassed noise slap with a short 70hz knock underneath
+export function thunk(): void {
+  if (!ctx || !master || !on) return;
+  const now = ctx.currentTime;
+
+  const knock = ctx.createOscillator();
+  knock.type = 'sine';
+  knock.frequency.setValueAtTime(74, now);
+  knock.frequency.exponentialRampToValueAtTime(52, now + 0.22);
+  const kg = ctx.createGain();
+  kg.gain.setValueAtTime(0.0001, now);
+  kg.gain.exponentialRampToValueAtTime(0.32, now + 0.018);
+  kg.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+  knock.connect(kg);
+  kg.connect(master);
+  knock.start(now);
+  knock.stop(now + 0.46);
+
+  const len = Math.floor(ctx.sampleRate * 0.28);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(600, now);
+  lp.frequency.exponentialRampToValueAtTime(110, now + 0.22);
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.4, now);
+  ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+  src.connect(lp);
+  lp.connect(ng);
+  ng.connect(master);
+  src.start(now);
 }
