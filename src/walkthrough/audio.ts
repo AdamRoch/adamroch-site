@@ -265,6 +265,31 @@ export function horn(): void {
   g.connect(master);
 }
 
+// the ground grates as the sign climbs — bandpassed noise swept downward
+export function grate(): void {
+  if (!ctx || !master || !on) return;
+  const now = ctx.currentTime;
+
+  const len = Math.floor(ctx.sampleRate * 1.8);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.Q.value = 1.1;
+  bp.frequency.setValueAtTime(520, now);
+  bp.frequency.exponentialRampToValueAtTime(170, now + 1.6);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.26, now);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+  src.connect(bp);
+  bp.connect(g);
+  g.connect(master);
+  src.start(now);
+}
+
 // the sign seats: a lowpassed noise slap with a short 70hz knock underneath
 export function thunk(): void {
   if (!ctx || !master || !on) return;

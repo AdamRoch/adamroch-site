@@ -8,6 +8,7 @@ import {
   chargeTone,
   chime,
   duck,
+  grate,
   horn,
   setRumble,
   stopRumble,
@@ -491,6 +492,7 @@ function beginCompletion(): void {
 function updateRite(dt: number): void {
   if (!rite.active) return;
   rite.t += dt;
+  if (rite.t >= 1.2) beginOmenSign(); // a breath after the horn, not after the swell — the sand answers fast
   const p = Math.min(rite.t / RITE_DUR, 1);
   const env = Math.sin(p * Math.PI); // swells, then settles
   const warm = SKY_BASE.clone().lerp(SKY_WARM, env * 0.5);
@@ -506,7 +508,6 @@ function updateRite(dt: number): void {
     sunGlow.scale.set(SUN_BASE_SCALE, SUN_BASE_SCALE, 1);
     sun.intensity = SUN_BASE_INTENSITY;
     hemi.intensity = HEMI_BASE;
-    beginOmenSign(); // the rite has settled — now the sand answers
   }
 }
 
@@ -1321,7 +1322,8 @@ function beginOmenSign(): void {
   omen.rising = true;
   omen.t = 0;
   omen.rumbleCut = false;
-  setRumble(0.35);
+  setRumble(0.6);
+  grate(); // the sand grating open around the post
 }
 
 // seats the sign at emergence progress p — shared by the live rise and the test hook
@@ -1343,8 +1345,8 @@ function updateSign(dt: number): void {
   const p = Math.min(omen.t / SIGN_RISE_DUR, 1);
   poseOmenSign(p);
 
-  // shares the egg's additive-shake channel — the ground trembling as it climbs
-  shakeAmp = 0.004 * (1 - p);
+  // shares the egg's additive-shake channel — an earthquake judder that eases as it seats
+  shakeAmp = (0.006 + 0.004 * Math.abs(Math.sin(omen.t * 11.3))) * (1 - p * 0.6);
 
   if (!omen.rumbleCut && p >= 0.8) {
     omen.rumbleCut = true;

@@ -164,11 +164,11 @@ cuts to white.
    camera shake that never touches yaw/pitch. Ships with an
    ?eggtest=<phase>&t=<0..1> hook for headless verification.
 
-9. **Omen sign — done, live.** After the completion rite settles, a weathered
-   wooden sign rumbles up out of the sand 4m in front of the player (2.8s
-   ease-out-back rise, tilt wobble, additive ground shake, low rumble + wooden
-   thunk), hand-lettered with "don't stand in the shallows / and stare at the
-   sun" — the discoverability bridge to the moonfall egg. All procedural
-   (seeded canvas wood grain + plank face, per-letter jitter). ?signtest hook
-   for screenshots; reviewer fixup — the hook's camera initially stood off the
-   board's unlettered back.
+9. **Omen sign — done, live.** Just after the rite's horn (rite start +1.2s), a
+   weathered wooden sign rumbles up out of the sand 4m in front of the player
+   (2.8s ease-out-back rise, tilt wobble, earthquake-judder shake, rumble +
+   grating noise + wooden thunk), hand-lettered with "don't stand in the
+   shallows / and stare at the sun" — the discoverability bridge to the
+   moonfall egg. All procedural (seeded canvas wood grain + plank face,
+   per-letter jitter). ?signtest hook for screenshots; reviewer fixup — the
+   hook's camera initially stood off the board's unlettered back.
