@@ -4,10 +4,13 @@ import { watchQuality } from '../lab-quality';
 import {
   setEnabled as setAudioEnabled,
   setHeadCloseness,
+  boom,
   chargeTone,
   chime,
   duck,
   horn,
+  setRumble,
+  stopRumble,
 } from './audio';
 import './style.css';
 
@@ -167,12 +170,8 @@ function makeSkyTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-scene.add(
-  new THREE.Mesh(
-    new THREE.SphereGeometry(450, 32, 16),
-    new THREE.MeshBasicMaterial({ map: makeSkyTexture(), side: THREE.BackSide, fog: false })
-  )
-);
+const skyMat = new THREE.MeshBasicMaterial({ map: makeSkyTexture(), side: THREE.BackSide, fog: false });
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(450, 32, 16), skyMat));
 
 // the low sun itself — a soft hazy disc out over the water.
 // drawn opaque on black so additive blending reads pure rgb falloff:
@@ -476,6 +475,7 @@ const SKY_WARM = new THREE.Color(0xf4c493);
 const SUN_BASE_SCALE = 150;
 const SUN_BASE_INTENSITY = sun.intensity;
 const HEMI_BASE = hemi.intensity;
+const FILL_BASE = fill.intensity;
 const RITE_DUR = 7;
 const rite = { active: false, t: 0 };
 let riteDone = false;
@@ -508,6 +508,359 @@ function updateRite(dt: number): void {
   }
 }
 
+/* ————— the moonfall: a face of our own, painted and aimed ————— */
+
+const MOON_TEX_S = 1024;
+const MOON_ANCHOR_DIST = 230;
+const MOON_START_SCALE = 76; // about two suns wide at anchor distance
+const MOON_END_SCALE = 110;
+const MOON_END_GAP = 122; // stays clear of the shell — the view fills first
+const EYE_PX = [424, 600];
+const EYE_PY = 452;
+const MOON_DIR = sunGlow.position
+  .clone()
+  .normalize()
+  .add(new THREE.Vector3(0, 0.38, 0))
+  .normalize();
+
+// SphereGeometry carries exact equirect uvs, so meshes can be seated precisely
+// where the paint lands: u = px/S, v = py/S, theta = v·π, phi = u·2π
+function faceDirection(px: number, py: number): THREE.Vector3 {
+  const theta = (py / MOON_TEX_S) * Math.PI;
+  const phi = (px / MOON_TEX_S) * Math.PI * 2;
+  return new THREE.Vector3(
+    -Math.cos(phi) * Math.sin(theta),
+    Math.cos(theta),
+    Math.sin(phi) * Math.sin(theta)
+  );
+}
+
+// seeded crater field — the same moon every load, never a reroll
+interface Crater {
+  axis: THREE.Vector3;
+  size: number;
+  depth: number;
+}
+
+const moonCraters: Crater[] = (() => {
+  let s = 8675;
+  const rnd = (): number => {
+    s = (s * 16807) % 2147483647;
+    return s / 2147483647;
+  };
+  const list: Crater[] = [];
+  for (let i = 0; i < 24; i++) {
+    const az = rnd() * Math.PI * 2;
+    const el = Math.asin(rnd() * 2 - 1);
+    list.push({
+      axis: new THREE.Vector3(
+        Math.cos(el) * Math.cos(az),
+        Math.sin(el),
+        Math.cos(el) * Math.sin(az)
+      ),
+      size: 0.18 + rnd() * 0.55,
+      depth: 0.02 + rnd() * 0.05,
+    });
+  }
+  return list;
+})();
+
+// coarse value-noise lattice, trilinearly blended — deterministic by hash
+function moonNoise(x: number, y: number, z: number): number {
+  const h = (ix: number, iy: number, iz: number): number => {
+    const n = Math.sin(ix * 127.1 + iy * 311.7 + iz * 74.7) * 43758.5453;
+    return n - Math.floor(n);
+  };
+  const mix = (a: number, b: number, t: number): number => a + (b - a) * t;
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const zi = Math.floor(z);
+  const xf = x - xi;
+  const yf = y - yi;
+  const zf = z - zi;
+  const ux = xf * xf * (3 - 2 * xf);
+  const uy = yf * yf * (3 - 2 * yf);
+  const uz = zf * zf * (3 - 2 * zf);
+  return mix(
+    mix(
+      mix(h(xi, yi, zi), h(xi + 1, yi, zi), ux),
+      mix(h(xi, yi + 1, zi), h(xi + 1, yi + 1, zi), ux),
+      uy
+    ),
+    mix(
+      mix(h(xi, yi, zi + 1), h(xi + 1, yi, zi + 1), ux),
+      mix(h(xi, yi + 1, zi + 1), h(xi + 1, yi + 1, zi + 1), ux),
+      uy
+    ),
+    uz
+  );
+}
+
+// radial offset at a surface direction — noise rolls it, craters dent it
+function moonDisplace(dir: THREE.Vector3): number {
+  let d = (moonNoise(dir.x * 2.3 + 5, dir.y * 2.3 + 5, dir.z * 2.3 + 5) - 0.5) * 0.05;
+  for (const c of moonCraters) {
+    const ang = Math.acos(THREE.MathUtils.clamp(dir.dot(c.axis), -1, 1));
+    if (ang >= c.size) continue;
+    const t = ang / c.size;
+    d += ((Math.cos(t * Math.PI) * 0.5 + 0.5) * -1 + Math.exp(-((t - 0.85) ** 2) / 0.006) * 0.4) * c.depth;
+  }
+  return d;
+}
+
+function paintMoonFace(): THREE.CanvasTexture {
+  const S = MOON_TEX_S;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return new THREE.CanvasTexture(cv);
+
+  let s = 20260;
+  const rnd = (): number => {
+    s = (s * 16807) % 2147483647;
+    return s / 2147483647;
+  };
+
+  // mottled regolith base
+  ctx.fillStyle = '#8f8f8b';
+  ctx.fillRect(0, 0, S, S);
+  for (let i = 0; i < 46; i++) {
+    const x = rnd() * S;
+    const y = rnd() * S;
+    const r = 60 + rnd() * 150;
+    const tone = rnd() > 0.5 ? '170,168,160' : '95,93,89';
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${tone},0.14)`);
+    g.addColorStop(1, `rgba(${tone},0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
+  // small craters — dark cup, pale lip catching from one side
+  for (let i = 0; i < 130; i++) {
+    const x = rnd() * S;
+    const y = rnd() * S;
+    const r = 3 + rnd() * 15;
+    ctx.globalAlpha = 0.22 + rnd() * 0.28;
+    ctx.fillStyle = '#5c5a56';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = '#cfccc4';
+    ctx.lineWidth = Math.max(1, r * 0.22);
+    ctx.beginPath();
+    ctx.arc(x, y, r + ctx.lineWidth * 0.4, Math.PI * 0.85, Math.PI * 1.65);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // sunken sockets, tilted toward a scowl, embers already pooled inside
+  const socket = (cx: number, tilt: number): void => {
+    ctx.save();
+    ctx.translate(cx, EYE_PY);
+    ctx.rotate(tilt);
+    let g = ctx.createRadialGradient(0, 0, 8, 0, 0, 74);
+    g.addColorStop(0, 'rgba(12,9,7,0.97)');
+    g.addColorStop(0.55, 'rgba(18,13,10,0.82)');
+    g.addColorStop(1, 'rgba(18,13,10,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 78, 58, 0, 0, Math.PI * 2);
+    ctx.fill();
+    g = ctx.createRadialGradient(0, 6, 2, 0, 6, 40);
+    g.addColorStop(0, 'rgba(255,140,44,0.62)');
+    g.addColorStop(1, 'rgba(255,140,44,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 6, 46, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+  socket(EYE_PX[0], 0.28);
+  socket(EYE_PX[1], -0.28);
+
+  // a heavy brow shadow drawn across both sockets
+  const brow = ctx.createLinearGradient(0, 360, 0, 430);
+  brow.addColorStop(0, 'rgba(20,16,13,0)');
+  brow.addColorStop(1, 'rgba(20,16,13,0.4)');
+  ctx.fillStyle = brow;
+  ctx.fillRect(250, 360, 524, 70);
+
+  // the nose — little more than a suggestion of a ridge
+  ctx.strokeStyle = 'rgba(30,25,20,0.5)';
+  ctx.lineWidth = 10;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(500, 500);
+  ctx.quadraticCurveTo(490, 548, 502, 574);
+  ctx.moveTo(524, 500);
+  ctx.quadraticCurveTo(534, 548, 522, 574);
+  ctx.stroke();
+
+  // the grin — a dark slab, then two rows of blocky teeth clipped inside it
+  const mouth = new Path2D();
+  mouth.moveTo(320, 618);
+  mouth.quadraticCurveTo(512, 584, 704, 618);
+  mouth.quadraticCurveTo(668, 724, 512, 730);
+  mouth.quadraticCurveTo(356, 724, 320, 618);
+  ctx.fillStyle = '#151009';
+  ctx.fill(mouth);
+
+  ctx.save();
+  ctx.clip(mouth);
+  for (const top of [true, false]) {
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      const w = 34 + rnd() * 8;
+      const x = 338 + i * 43 + rnd() * 5;
+      const arc = Math.sin((i / (n - 1)) * Math.PI) * -12; // the rows follow the grin
+      const h = (top ? 38 : 32) + rnd() * 10;
+      const y = top ? 600 + arc : 726 - h;
+      ctx.fillStyle = '#cfc8b8';
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = 'rgba(74,69,60,0.55)';
+      ctx.fillRect(x, top ? y + h - 7 : y, w, 7);
+      ctx.strokeStyle = 'rgba(30,24,17,0.7)';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    }
+  }
+  ctx.restore();
+
+  // soften the poles so the wrap never shows a hard band
+  const capT = ctx.createLinearGradient(0, 0, 0, 70);
+  capT.addColorStop(0, 'rgba(52,50,47,0.5)');
+  capT.addColorStop(1, 'rgba(52,50,47,0)');
+  ctx.fillStyle = capT;
+  ctx.fillRect(0, 0, S, 70);
+  const capB = ctx.createLinearGradient(0, S - 70, 0, S);
+  capB.addColorStop(0, 'rgba(52,50,47,0)');
+  capB.addColorStop(1, 'rgba(52,50,47,0.5)');
+  ctx.fillStyle = capB;
+  ctx.fillRect(0, S - 70, S, 70);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+function buildMoonFace(): THREE.Group {
+  // a sphere, not an icosahedron — polyhedron uvs wander with their seam
+  // corrections, and the eyes must land exactly where the paint is
+  const geo = new THREE.SphereGeometry(1, 28, 20);
+  const pos = geo.attributes.position;
+  const dir = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    dir.set(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize();
+    const r = 1 + moonDisplace(dir);
+    pos.setXYZ(i, dir.x * r, dir.y * r, dir.z * r);
+  }
+  geo.computeVertexNormals();
+
+  const faceTex = paintMoonFace();
+  const body = new THREE.Mesh(
+    geo,
+    new THREE.MeshStandardMaterial({
+      map: faceTex,
+      emissiveMap: faceTex, // a whisper of self-light, so night never fully swallows it
+      emissive: new THREE.Color(0x2a2732),
+      emissiveIntensity: 0.5,
+      roughness: 0.95,
+      metalness: 0,
+      flatShading: true, // the low-poly grain reads best faceted
+      fog: false,
+    })
+  );
+  const group = new THREE.Group();
+  group.add(body);
+
+  // hot eyes seated into the painted sockets, haloed for reading at distance
+  for (const px of EYE_PX) {
+    const eyeDir = faceDirection(px, EYE_PY);
+    const eye = new THREE.Group();
+    eye.position.copy(eyeDir).multiplyScalar(1 + moonDisplace(eyeDir) - 0.05);
+    eye.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), eyeDir);
+
+    const rim = new THREE.Mesh(
+      new THREE.SphereGeometry(0.24, 14, 10),
+      new THREE.MeshBasicMaterial({ color: 0xe25822, fog: false })
+    );
+    rim.scale.set(1, 1, 0.4);
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(0.17, 14, 10),
+      new THREE.MeshBasicMaterial({ color: 0xffb347, fog: false })
+    );
+    core.scale.set(1, 1, 0.42);
+    core.position.z = 0.02;
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: makeSunGlowTexture(),
+        color: 0xff8c30,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.55,
+        fog: false,
+      })
+    );
+    glow.scale.set(0.7, 0.7, 1);
+    glow.position.z = 0.06;
+
+    eye.add(rim, core, glow);
+    group.add(eye);
+  }
+  return group;
+}
+
+// one moon, three nested groups: aim, roll, face — each worry gets its own axis
+const moon = new THREE.Group();
+const moonRoll = new THREE.Group();
+const moonFace = buildMoonFace();
+moonFace.rotation.y = -Math.PI / 2; // the paint faces +X on a sphere; turn it into the aim
+moonRoll.add(moonFace);
+moon.add(moonRoll);
+moon.visible = false;
+scene.add(moon);
+
+/* ————— stars: seed-fixed, and only out for the night ————— */
+
+function buildStars(): THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial> {
+  const N = 800;
+  const positions = new Float32Array(N * 3);
+  let s = 809;
+  const rnd = (): number => {
+    s = (s * 16807) % 2147483647;
+    return s / 2147483647;
+  };
+  for (let i = 0; i < N; i++) {
+    const az = rnd() * Math.PI * 2;
+    const el = 0.06 + rnd() * 1.45; // clear of the horizon murk, short of dead overhead
+    const r = 402 + rnd() * 38;
+    positions[i * 3] = Math.cos(el) * Math.cos(az) * r;
+    positions[i * 3 + 1] = Math.sin(el) * r;
+    positions[i * 3 + 2] = Math.cos(el) * Math.sin(az) * r;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  return new THREE.Points(
+    geo,
+    new THREE.PointsMaterial({
+      color: 0xdde4f5,
+      size: 1.9,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      fog: false,
+    })
+  );
+}
+
+const stars = buildStars();
+scene.add(stars);
+
 function updateMarkers(dt: number): void {
   let charging: number | null = null;
 
@@ -537,24 +890,117 @@ function updateMarkers(dt: number): void {
   chargeTone(charging);
 }
 
-/* ————— the sun's regard: hold its gaze from the shallows ————— */
+/* ————— the sun's regard: hold its gaze from the shallows, and the sky answers ————— */
 
 const whiteEl = document.getElementById('wt-white');
 const whiteLine = document.getElementById('wt-white-line');
 const camDir = new THREE.Vector3();
 const toSun = new THREE.Vector3();
-const SUN_FILL_SCALE = 1450;
 const BASE_EXPOSURE = 1.08;
+const NIGHT_SKY = new THREE.Color(0x141021);
+const WARM_HORIZON = new THREE.Color(0x8a4a2c);
 
-type EggPhase = 'idle' | 'rise' | 'hold' | 'set';
+type EggPhase = 'idle' | 'rise' | 'fall' | 'impact' | 'hold' | 'set';
+
+const EGG_DUR: Record<Exclude<EggPhase, 'idle'>, number> = {
+  rise: 2.5,
+  fall: 5.5,
+  impact: 1,
+  hold: 4.2,
+  set: 2,
+};
+
 const egg: { phase: EggPhase; t: number; gaze: number; cool: number } = {
   phase: 'idle',
   t: 0,
   gaze: 0,
   cool: 0,
 };
+let eggFrozen = false; // the test hook owns the timeline when this is set
+let shakeAmp = 0; // additive camera jitter — never folded back into yaw/pitch
+
+// sky, fog and the dome tint sink toward night; warmth lifts the horizon late
+function setNight(night: number, warm: number): void {
+  const col = SKY_BASE.clone().lerp(NIGHT_SKY, night);
+  if (warm > 0) col.lerp(WARM_HORIZON, warm * 0.45);
+  (scene.background as THREE.Color).copy(col);
+  beachFog.color.copy(col);
+  skyMat.color.setRGB(col.r / SKY_BASE.r, col.g / SKY_BASE.g, col.b / SKY_BASE.b);
+  stars.material.opacity = night * 0.9;
+}
+
+// the moon holds a fixed bearing off the walker — the sun's quarter, lifted —
+// so the approach reads as toward you wherever you have drifted
+function positionMoon(dist: number): void {
+  moon.position.copy(camera.position).addScaledVector(MOON_DIR, dist);
+}
+
+function aimMoon(roll: number): void {
+  moon.lookAt(camera.position);
+  moonRoll.rotation.z = roll;
+}
+
+function applyRise(p: number): void {
+  const night = THREE.MathUtils.smoothstep(p, 0.05, 1);
+  setNight(night, 0);
+  sunGlow.material.opacity = 1 - night * 0.45;
+  const s = SUN_BASE_SCALE * (1 - night * 0.4);
+  sunGlow.scale.set(s, s, 1);
+  sun.intensity = SUN_BASE_INTENSITY * (1 - night * 0.72);
+  hemi.intensity = HEMI_BASE * (1 - night * 0.55);
+  fill.intensity = FILL_BASE * (1 - night * 0.5);
+  renderer.toneMappingExposure = BASE_EXPOSURE - night * 0.22;
+
+  moon.visible = p > 0.04;
+  const grow = THREE.MathUtils.smoothstep(p, 0.04, 0.45);
+  moon.scale.setScalar(MOON_START_SCALE * grow);
+  positionMoon(MOON_ANCHOR_DIST);
+  aimMoon(0);
+  setRumble(night * 0.22);
+}
+
+function applyFall(p: number): void {
+  // exponential acceleration — a long lean in, then the sky gives way
+  const k = 2.6;
+  const accel = (Math.exp(k * p) - 1) / (Math.exp(k) - 1);
+  moon.visible = true;
+  moon.scale.setScalar(MOON_START_SCALE + (MOON_END_SCALE - MOON_START_SCALE) * accel);
+  positionMoon(MOON_ANCHOR_DIST + (MOON_END_GAP - MOON_ANCHOR_DIST) * Math.min(accel * 1.15, 1));
+  aimMoon(p * 0.5); // a slow roll, like it is enjoying this
+  setNight(1, THREE.MathUtils.smoothstep(p, 0.6, 1));
+  setRumble(0.22 + p * 0.78);
+  shakeAmp = 0.0016 + p * p * 0.011;
+}
+
+function applyImpact(p: number): void {
+  if (whiteEl) whiteEl.style.opacity = '1'; // the cut has already landed; hold it
+  renderer.toneMappingExposure = BASE_EXPOSURE - 0.22 + Math.exp(-p * 4) * 0.4;
+  shakeAmp = 0.02 * Math.exp(-p * 4.2);
+}
+
+function applySet(p: number): void {
+  const ease = 1 - (1 - p) * (1 - p);
+  const night = 1 - ease;
+  setNight(night, 0);
+  sunGlow.material.opacity = 1 - night * 0.45;
+  const s = SUN_BASE_SCALE * (1 - night * 0.4);
+  sunGlow.scale.set(s, s, 1);
+  sun.intensity = SUN_BASE_INTENSITY * (1 - night * 0.72);
+  hemi.intensity = HEMI_BASE * (1 - night * 0.55);
+  fill.intensity = FILL_BASE * (1 - night * 0.5);
+  renderer.toneMappingExposure = BASE_EXPOSURE - night * 0.22;
+  if (whiteEl) whiteEl.style.opacity = String(Math.max(0, 1 - p * 2.1)); // white clears early
+
+  moon.visible = ease < 1;
+  moon.scale.setScalar(MOON_END_SCALE * (1 - ease));
+  positionMoon(MOON_END_GAP);
+  aimMoon(0.5);
+  shakeAmp = 0;
+}
 
 function updateEgg(dt: number): void {
+  if (eggFrozen) return;
+
   if (egg.phase === 'idle') {
     egg.cool = Math.max(0, egg.cool - dt);
     const inShallows = camera.position.x <= SHORE_X + 0.4;
@@ -574,39 +1020,55 @@ function updateEgg(dt: number): void {
   }
 
   egg.t += dt;
-  if (egg.phase === 'rise') {
-    const p = Math.min(egg.t / 2.4, 1);
-    const s = SUN_BASE_SCALE + (SUN_FILL_SCALE - SUN_BASE_SCALE) * p * p;
-    sunGlow.scale.set(s, s, 1);
-    const white = THREE.MathUtils.smoothstep(p, 0.55, 1);
-    if (whiteEl) whiteEl.style.opacity = String(white);
-    renderer.toneMappingExposure = BASE_EXPOSURE + white * 0.25;
-    if (p >= 1) {
-      egg.phase = 'hold';
-      egg.t = 0;
-      whiteLine?.classList.add('show');
+  switch (egg.phase) {
+    case 'rise': {
+      const p = Math.min(egg.t / EGG_DUR.rise, 1);
+      applyRise(p);
+      if (p >= 1) {
+        egg.phase = 'fall';
+        egg.t = 0;
+      }
+      break;
     }
-  } else if (egg.phase === 'hold') {
-    if (egg.t >= 4.2) {
-      whiteLine?.classList.remove('show');
-      egg.phase = 'set';
-      egg.t = 0;
-      duck(1, 1.8);
+    case 'fall': {
+      const p = Math.min(egg.t / EGG_DUR.fall, 1);
+      applyFall(p);
+      if (p >= 1) {
+        egg.phase = 'impact';
+        egg.t = 0;
+        stopRumble(0.25);
+        boom();
+        if (whiteEl) whiteEl.style.opacity = '1'; // the hard cut
+      }
+      break;
     }
-  } else {
-    const p = Math.min(egg.t / 1.9, 1);
-    const fade = Math.max(0, 1 - egg.t / 0.9);
-    if (whiteEl) whiteEl.style.opacity = String(fade);
-    const ease = 1 - (1 - p) * (1 - p);
-    const s = SUN_FILL_SCALE + (SUN_BASE_SCALE - SUN_FILL_SCALE) * ease;
-    sunGlow.scale.set(s, s, 1);
-    renderer.toneMappingExposure = BASE_EXPOSURE + (1 - p) * 0.25;
-    if (p >= 1) {
-      egg.phase = 'idle';
-      egg.gaze = 0;
-      egg.cool = 6; // the sun does not repeat itself quickly
-      sunGlow.scale.set(SUN_BASE_SCALE, SUN_BASE_SCALE, 1);
-      renderer.toneMappingExposure = BASE_EXPOSURE;
+    case 'impact': {
+      const p = Math.min(egg.t / EGG_DUR.impact, 1);
+      applyImpact(p);
+      if (p >= 1) {
+        egg.phase = 'hold';
+        egg.t = 0;
+        whiteLine?.classList.add('show');
+      }
+      break;
+    }
+    case 'hold':
+      if (egg.t >= EGG_DUR.hold) {
+        whiteLine?.classList.remove('show');
+        egg.phase = 'set';
+        egg.t = 0;
+        duck(1, 1.8);
+      }
+      break;
+    case 'set': {
+      const p = Math.min(egg.t / EGG_DUR.set, 1);
+      applySet(p);
+      if (p >= 1) {
+        egg.phase = 'idle';
+        egg.gaze = 0;
+        egg.cool = 10; // the moon does not repeat itself quickly
+      }
+      break;
     }
   }
 }
@@ -704,6 +1166,62 @@ window.addEventListener('keyup', (e) => {
 });
 
 window.addEventListener('blur', clearKeys);
+
+/* ————— test hook: ?eggtest=<phase|auto>[&t=<0..1>] —————
+   Forces the egg into a moment without pointer lock and freezes it there so
+   headless screenshots work (reduced motion included); auto plays it through. */
+
+const eggQuery = new URLSearchParams(window.location.search);
+const eggTest = eggQuery.get('eggtest');
+
+if (eggTest) {
+  overlay?.setAttribute('hidden', '');
+
+  // stand in the shallows, eyes already on the sun
+  camera.position.set(SHORE_X + 0.2, 0, 6);
+  camera.position.y = groundHeight(camera.position.x, camera.position.z) + EYE_HEIGHT;
+  const aimDir = sunGlow.position.clone().sub(camera.position).normalize();
+  yaw = Math.atan2(-aimDir.x, -aimDir.z);
+  pitch = Math.asin(THREE.MathUtils.clamp(aimDir.y, -1, 1));
+  camera.rotation.set(pitch, yaw, 0);
+
+  if (eggTest === 'auto') {
+    if (reduced) {
+      // reduced renders a single frame — spend it on the fall, near impact
+      applyFall(0.93);
+      shakeAmp = 0;
+      eggFrozen = true;
+    } else {
+      egg.phase = 'rise'; // no lock needed; the loop carries it from here
+      egg.t = 0;
+      duck(0.18, 1.0);
+    }
+  } else if (Object.hasOwn(EGG_DUR, eggTest)) {
+    const phase = eggTest as Exclude<EggPhase, 'idle'>;
+    const rawT = eggQuery.get('t');
+    const defaults: Record<Exclude<EggPhase, 'idle'>, number> = {
+      rise: 0.98,
+      fall: 0.92,
+      impact: 0.5,
+      hold: 1,
+      set: 0.45,
+    };
+    const p = rawT === null ? defaults[phase] : THREE.MathUtils.clamp(Number(rawT) || 0, 0, 1);
+    egg.phase = phase;
+    egg.t = p * EGG_DUR[phase];
+    if (phase === 'rise') applyRise(p);
+    else if (phase === 'fall') applyFall(p);
+    else if (phase === 'impact') applyImpact(p);
+    else if (phase === 'hold') {
+      if (whiteEl) whiteEl.style.opacity = '1';
+      whiteLine?.classList.add('show');
+    } else {
+      applySet(p);
+    }
+    shakeAmp = 0; // a held frame does not tremble
+    eggFrozen = true;
+  }
+}
 
 /* ————— sound & the quiet hint ————— */
 
@@ -825,6 +1343,14 @@ function frame(): void {
   if (locked) updateMarkers(dt);
   updateRite(dt);
   updateEgg(dt);
+
+  // the fall shakes the eye — additive offsets only, the look angles stay clean
+  if (shakeAmp > 0.0002) {
+    const st = timer.getElapsed();
+    camera.rotation.x += Math.sin(st * 39.7) * shakeAmp;
+    camera.rotation.y += Math.sin(st * 31.3 + 1.7) * shakeAmp * 0.8;
+    camera.rotation.z += Math.sin(st * 43.1 + 3.9) * shakeAmp * 0.5;
+  }
 
   // the sea breathes slowly — a long drift across the swell normals
   const t = timer.getElapsed();

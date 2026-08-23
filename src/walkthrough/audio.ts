@@ -17,6 +17,10 @@ let toneOsc: OscillatorNode | null = null;
 let toneGain: GainNode | null = null;
 let toneActive = false;
 
+let rumbleGain: GainNode | null = null;
+let subOsc: OscillatorNode | null = null;
+let subGain: GainNode | null = null;
+
 function ensureContext(): AudioContext {
   if (ctx) return ctx;
   ctx = new AudioContext();
@@ -78,6 +82,35 @@ function buildBed(): void {
   drone.connect(droneGain);
   droneGain.connect(bed);
   drone.start();
+
+  // moonfall bed: looped noise under a deep lowpass, plus a 45hz sub sine.
+  // these ride master, not bed — the whiteout's duck must not mute the threat
+  const rlen = ac.sampleRate * 4;
+  const rbuf = ac.createBuffer(1, rlen, ac.sampleRate);
+  const rdata = rbuf.getChannelData(0);
+  for (let i = 0; i < rlen; i++) rdata[i] = Math.random() * 2 - 1;
+  const rumbleSrc = ac.createBufferSource();
+  rumbleSrc.buffer = rbuf;
+  rumbleSrc.loop = true;
+  const rumbleLp = ac.createBiquadFilter();
+  rumbleLp.type = 'lowpass';
+  rumbleLp.frequency.value = 120;
+  rumbleLp.Q.value = 0.5;
+  rumbleGain = ac.createGain();
+  rumbleGain.gain.value = 0;
+  rumbleSrc.connect(rumbleLp);
+  rumbleLp.connect(rumbleGain);
+  rumbleGain.connect(master!);
+
+  subOsc = ac.createOscillator();
+  subOsc.type = 'sine';
+  subOsc.frequency.value = 45;
+  subGain = ac.createGain();
+  subGain.gain.value = 0;
+  subOsc.connect(subGain);
+  subGain.connect(master!);
+  rumbleSrc.start();
+  subOsc.start();
 }
 
 /* ————— public API ————— */
@@ -128,6 +161,60 @@ export function chargeTone(progress: number | null): void {
     toneActive = true;
     toneGain!.gain.setTargetAtTime(0.05, now, 0.08);
   }
+}
+
+// p in [0,1] — moonfall progress; the rumble and its sub sine climb together
+export function setRumble(p: number): void {
+  if (!ctx || !on || !rumbleGain || !subGain) return;
+  rumbleGain.gain.value = p * p * 0.3;
+  subGain.gain.value = p * p * 0.18;
+}
+
+// silence the rumble no matter the mute state — a stale bed must not linger
+export function stopRumble(seconds = 0.5): void {
+  if (!ctx || !rumbleGain || !subGain) return;
+  const now = ctx.currentTime;
+  rumbleGain.gain.cancelScheduledValues(now);
+  rumbleGain.gain.setTargetAtTime(0, now, seconds / 3);
+  subGain.gain.cancelScheduledValues(now);
+  subGain.gain.setTargetAtTime(0, now, seconds / 3);
+}
+
+// impact: a falling-pitch sine burst with a filtered noise thud behind it
+export function boom(): void {
+  if (!ctx || !master || !on) return;
+  const now = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(88, now);
+  osc.frequency.exponentialRampToValueAtTime(31, now + 2.1); // the pitch falls as the dust settles
+  const og = ctx.createGain();
+  og.gain.setValueAtTime(0.0001, now);
+  og.gain.exponentialRampToValueAtTime(0.55, now + 0.025);
+  og.gain.exponentialRampToValueAtTime(0.0001, now + 2.6);
+  osc.connect(og);
+  og.connect(master);
+  osc.start(now);
+  osc.stop(now + 2.65);
+
+  const len = Math.floor(ctx.sampleRate * 1.2);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(850, now);
+  lp.frequency.exponentialRampToValueAtTime(55, now + 1.1);
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.5, now);
+  ng.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
+  src.connect(lp);
+  lp.connect(ng);
+  ng.connect(master);
+  src.start(now);
 }
 
 const CHIMES = [523.25, 659.25, 783.99]; // C5 · E5 · G5, one step per marker
