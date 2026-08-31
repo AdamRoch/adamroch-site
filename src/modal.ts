@@ -72,7 +72,7 @@ async function handleSubmit(form: HTMLFormElement): Promise<void> {
   // no backend wired yet — compose an email instead so nothing is lost
   if (!endpoint) {
     const subject =
-      kind === 'giveaway' ? 'Giveaway entry — adamroch.com' : 'Message from adamroch.com';
+      kind === 'giveaway' ? 'Giveaway entry - adamroch.com' : 'Message from adamroch.com';
     const body = Array.from(data.entries())
       .map(([key, value]) => `${key}: ${String(value)}`)
       .join('\n');
@@ -80,7 +80,7 @@ async function handleSubmit(form: HTMLFormElement): Promise<void> {
       subject
     )}&body=${encodeURIComponent(body)}`;
     if (status) {
-      status.textContent = 'Opening your email app — press send there to finish.';
+      status.textContent = 'Opening your email app. Press send there to finish.';
     }
     return;
   }
@@ -101,11 +101,11 @@ async function handleSubmit(form: HTMLFormElement): Promise<void> {
     form.reset();
     if (status) {
       status.textContent =
-        kind === 'giveaway' ? "You're in. Good luck." : "Sent — I'll get back to you soon.";
+        kind === 'giveaway' ? "You're in. Good luck." : "Sent. I'll get back to you soon.";
     }
   } catch {
     if (status) {
-      status.innerHTML = `Something went wrong — email me directly at <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>`;
+      status.innerHTML = `Something went wrong. Email me directly at <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>`;
     }
   } finally {
     if (submitBtn) {

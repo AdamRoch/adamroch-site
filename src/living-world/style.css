@@ -39,6 +39,16 @@ button {
   display: block;
 }
 
+/* ————— vignette overlay ————— */
+
+.lw-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(18, 22, 13, 0.38) 100%);
+}
+
 /* ————— cursor ring ————— */
 
 .lw-cursor {

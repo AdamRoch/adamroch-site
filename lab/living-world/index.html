@@ -14,6 +14,7 @@
   </head>
   <body>
     <canvas id="lw-gl"></canvas>
+    <div class="lw-vignette" aria-hidden="true"></div>
     <div class="lw-cursor" id="lw-cursor" hidden></div>
 
     <nav class="lw-nav" data-lw-ui>
@@ -69,11 +70,20 @@ const mossTex = new THREE.CanvasTexture(makeMossCanvas(1234));</code></pre>
         effect is just the materials flipping into wireframe and back.
       </p>
       <p>
-        The EXPLORE button flies the camera along a Catmull-Rom spline threaded through three of the
-        arch openings — out through the big left arch and the small center one, a wide sweep around
-        the back field, then home through the right arch — while the fov pushes 42 → 34 and back for
-        the zoom. The control points are verified clear of every arch tube, and the flight hands
-        control back to the mouse parallax without a pop.
+        The EXPLORE button flies the camera along a Catmull-Rom spline whose approach, anchor, and
+        exit points are derived from each threaded arch's own transform, so every pass stays
+        perpendicular to the opening — out through the big left arch, a tangent-matched arc that
+        crests over the back field, then home through the right arch — while the fov pushes 42 → 38
+        and back for the zoom. The control points are clearance-verified against every arch tube,
+        and the flight hands control back to the mouse parallax without a pop.
+      </p>
+      <p>
+        The flora is grown, not modeled: grass tufts are instanced cards painted on canvas
+        (blade gradients and all) scattered in noise-thresholded drifts, with real tapered blades
+        instanced in the near field, a vertex-shader sway, and a sun-backlit lift patched into the
+        material. Mushrooms cluster at the arch feet, vines hang clear of the flight corridor,
+        fireflies drift between the arches, and the whole frame passes through a subtle
+        UnrealBloom pass so dew, spores, and the sun and moon sprites glow.
       </p>
     </aside>
 
