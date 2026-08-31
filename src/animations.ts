@@ -5,84 +5,214 @@ gsap.registerPlugin(ScrollTrigger);
 
 interface AnimOptions {
   reduced: boolean;
-  onScroll: (progress: number) => void;
+  onMorph: (progress: number) => void;
 }
 
-const $ = <T extends Element>(sel: string): T | null => document.querySelector<T>(sel);
+const $ = <T extends Element>(selector: string): T | null => document.querySelector<T>(selector);
 
-function splitChars(el: HTMLElement): HTMLSpanElement[] {
-  const text = el.textContent ?? '';
-  el.textContent = '';
+function splitChars(element: HTMLElement): HTMLSpanElement[] {
+  const text = element.textContent ?? '';
+  element.textContent = '';
   const spans: HTMLSpanElement[] = [];
-  for (const ch of text) {
-    if (ch === ' ') {
-      el.appendChild(document.createTextNode(' '));
+
+  for (const part of text.split(/(\s+)/)) {
+    if (!part) continue;
+    if (/^\s+$/.test(part)) {
+      element.appendChild(document.createTextNode(part));
       continue;
     }
-    const s = document.createElement('span');
-    s.className = 'ch';
-    s.textContent = ch;
-    el.appendChild(s);
-    spans.push(s);
+
+    const word = document.createElement('span');
+    word.className = 'word';
+    for (const character of part) {
+      const span = document.createElement('span');
+      span.className = 'ch';
+      span.textContent = character;
+      word.appendChild(span);
+      spans.push(span);
+    }
+    element.appendChild(word);
   }
+
   return spans;
 }
 
-function splitWords(el: HTMLElement): HTMLSpanElement[] {
-  const words = (el.textContent ?? '').trim().split(/\s+/);
-  el.textContent = '';
-  return words.map((word, i) => {
-    const s = document.createElement('span');
-    s.className = 'w';
-    s.textContent = word;
-    el.appendChild(s);
-    if (i < words.length - 1) el.appendChild(document.createTextNode(' '));
-    return s;
+function splitWords(element: HTMLElement): HTMLSpanElement[] {
+  const words = (element.textContent ?? '').trim().split(/\s+/);
+  element.textContent = '';
+
+  return words.map((word, index) => {
+    const span = document.createElement('span');
+    span.className = 'w';
+    span.textContent = word;
+    element.appendChild(span);
+    if (index < words.length - 1) element.appendChild(document.createTextNode(' '));
+    return span;
   });
 }
 
-export function initAnimations({ reduced, onScroll }: AnimOptions): void {
-  // the shader dims as the page descends — always wired, even with reduced motion
-  ScrollTrigger.create({
-    start: 0,
-    end: 'max',
-    onUpdate: (self) => onScroll(self.progress),
+function initClock(): void {
+  const clock = $<HTMLElement>('[data-clock]');
+  if (!clock) return;
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const update = (): void => {
+    clock.textContent = `${formatter.format(new Date())} GMT-6`;
+  };
+
+  update();
+  window.setInterval(update, 30_000);
+}
+
+function initSegmentedNav(): void {
+  const nav = $<HTMLElement>('.seg-nav');
+  const hero = $<HTMLElement>('#hero');
+  if (!nav || !hero) return;
+
+  const links = Array.from(nav.querySelectorAll<HTMLAnchorElement>('[data-section]'));
+  const setActive = (sectionId: string): void => {
+    links.forEach((link) => {
+      const active = link.dataset.section === sectionId;
+      link.classList.toggle('is-active', active);
+      if (active) link.setAttribute('aria-current', 'true');
+      else link.removeAttribute('aria-current');
+    });
+  };
+
+  const sectionObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) setActive(entry.target.id);
+      });
+    },
+    { rootMargin: '-45% 0px -45% 0px' }
+  );
+  ['experiments', 'manifesto', 'contact'].forEach((id) => {
+    const section = document.getElementById(id);
+    if (section) sectionObserver.observe(section);
   });
 
+  const heroObserver = new IntersectionObserver(([entry]) => {
+    nav.classList.toggle('is-hidden', entry?.isIntersecting ?? false);
+  });
+  heroObserver.observe(hero);
+}
+
+function initWorkPreview(reduced: boolean): void {
+  if (reduced || !window.matchMedia('(pointer: fine)').matches) return;
+
+  const rows = Array.from(document.querySelectorAll<HTMLElement>('.work-row'));
+  if (rows.length === 0) return;
+
+  const preview = document.createElement('div');
+  preview.className = 'work-preview';
+  preview.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(preview);
+
+  const xTo = gsap.quickTo(preview, 'x', { duration: 0.42, ease: 'power3.out' });
+  const yTo = gsap.quickTo(preview, 'y', { duration: 0.42, ease: 'power3.out' });
+  let activeRow: HTMLElement | null = null;
+
+  const positionPreview = (clientX: number, clientY: number, immediate = false): void => {
+    const width = preview.offsetWidth;
+    const height = preview.offsetHeight;
+    const x = gsap.utils.clamp(12, Math.max(12, window.innerWidth - width - 12), clientX + 24);
+    const y = gsap.utils.clamp(12, Math.max(12, window.innerHeight - height - 12), clientY + 24);
+    if (immediate) gsap.set(preview, { x, y });
+    else {
+      xTo(x);
+      yTo(y);
+    }
+  };
+
+  const show = (row: HTMLElement, clientX?: number, clientY?: number): void => {
+    const source = row.dataset.thumb;
+    if (!source) return;
+    activeRow = row;
+    preview.style.backgroundImage = `url("${source}")`;
+
+    if (clientX === undefined || clientY === undefined) {
+      const bounds = row.getBoundingClientRect();
+      positionPreview(bounds.left + bounds.width * 0.62, bounds.top + bounds.height * 0.2, true);
+    } else {
+      positionPreview(clientX, clientY, true);
+    }
+
+    gsap.fromTo(
+      preview,
+      { autoAlpha: 0, scale: 0.9 },
+      { autoAlpha: 1, scale: 1, duration: 0.35, ease: 'power3.out', overwrite: true }
+    );
+  };
+
+  const hide = (row: HTMLElement): void => {
+    if (activeRow !== row) return;
+    activeRow = null;
+    gsap.to(preview, {
+      autoAlpha: 0,
+      scale: 0.96,
+      duration: 0.2,
+      ease: 'power2.out',
+      overwrite: true,
+    });
+  };
+
+  rows.forEach((row) => {
+    row.addEventListener('pointerenter', (event) => show(row, event.clientX, event.clientY));
+    row.addEventListener('pointerleave', () => hide(row));
+    row.addEventListener('focus', () => show(row));
+    row.addEventListener('blur', () => hide(row));
+  });
+
+  window.addEventListener('pointermove', (event) => {
+    if (activeRow) positionPreview(event.clientX, event.clientY);
+  });
+}
+
+export function initAnimations({ reduced, onMorph }: AnimOptions): void {
+  initClock();
+  initSegmentedNav();
+  initWorkPreview(reduced);
+
   const splitTargets = document.querySelectorAll<HTMLElement>('[data-split]');
-  const chars = Array.from(splitTargets).flatMap((el) => splitChars(el));
+  const chars = Array.from(splitTargets).flatMap((element) => splitChars(element));
+  const manifestoText = $<HTMLElement>('.manifesto-text');
+  const words = manifestoText ? splitWords(manifestoText) : [];
+  const revealTargets = gsap.utils.toArray<HTMLElement>(
+    '.work-row, .media-card, .section-head, .footer-cta, .footer-actions, .footer-links'
+  );
 
   if (reduced) {
     gsap.set(chars, { yPercent: 0 });
-    gsap.set(['.site-nav', '.hero-side', '.scroll-cue'], { opacity: 1, y: 0 });
+    gsap.set(words, { opacity: 1 });
+    gsap.set(['.top-bar', '.hero-role', '.scroll-cue', ...revealTargets], { opacity: 1, y: 0 });
     return;
   }
 
-  // intro
   gsap.set(chars, { yPercent: 115 });
-  gsap.set('.site-nav', { opacity: 0, y: -16 });
-  gsap.set('.hero-side', { opacity: 0, y: 24 });
-  gsap.set('.scroll-cue', { opacity: 0 });
+  gsap.set('.top-bar', { opacity: 0, y: -16 });
+  gsap.set(['.hero-role', '.scroll-cue'], { opacity: 0, y: 24 });
 
-  const intro = gsap.timeline({ defaults: { ease: 'power4.out' } });
-  intro
-    .to(chars, { yPercent: 0, duration: 1.4, stagger: 0.04 }, 0.15)
-    .to('.site-nav', { opacity: 1, y: 0, duration: 0.9 }, 0.55)
-    .to('.hero-side', { opacity: 1, y: 0, duration: 1.0 }, 0.85)
-    .to('.scroll-cue', { opacity: 1, duration: 0.8 }, 1.3);
+  gsap
+    .timeline({ defaults: { ease: 'power4.out' } })
+    .to(chars, { yPercent: 0, duration: 1.4, stagger: 0.03 }, 0.15)
+    .to('.top-bar', { opacity: 1, y: 0, duration: 0.9 }, 0.55)
+    .to(['.hero-role', '.scroll-cue'], { opacity: 1, y: 0, duration: 1 }, 0.85);
 
-  // hero drifts away as you leave it
-  gsap.to('.hero-inner', {
-    yPercent: -12,
-    opacity: 0,
-    ease: 'none',
-    scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true },
+  ScrollTrigger.create({
+    trigger: '#manifesto',
+    start: 'top bottom',
+    end: 'bottom top',
+    scrub: true,
+    onUpdate: (self) => onMorph(self.progress),
   });
 
-  // manifesto: title pins while the words surface one by one
-  const manifestoText = $<HTMLElement>('.manifesto-text');
-  if (manifestoText) {
-    const words = splitWords(manifestoText);
+  if (manifestoText && words.length > 0) {
     gsap.set(words, { opacity: 0.12 });
     gsap.to(words, {
       opacity: 1,
@@ -95,10 +225,9 @@ export function initAnimations({ reduced, onScroll }: AnimOptions): void {
         scrub: true,
       },
     });
-    // pinning is desktop-only — on mobile the single-column layout
-    // would let the fixed heading float over the paragraph
-    const mm = gsap.matchMedia();
-    mm.add('(min-width: 861px)', () => {
+
+    const media = gsap.matchMedia();
+    media.add('(min-width: 861px)', () => {
       ScrollTrigger.create({
         trigger: '.manifesto-pin',
         start: 'top 24%',
@@ -110,36 +239,19 @@ export function initAnimations({ reduced, onScroll }: AnimOptions): void {
     });
   }
 
-  // cinema image: grows into view, dims and recedes on the way out
-  gsap.fromTo(
-    '.cinema',
-    { scale: 0.85, opacity: 0.4 },
-    {
-      scale: 1,
-      opacity: 1,
-      ease: 'none',
-      scrollTrigger: { trigger: '.cinema', start: 'top 92%', end: 'top 32%', scrub: true },
-    }
-  );
-  gsap.to('.cinema', {
-    opacity: 0.15,
-    scale: 0.96,
-    ease: 'none',
-    scrollTrigger: { trigger: '.cinema', start: 'bottom 45%', end: 'bottom top', scrub: true },
-  });
-
-  // section heads and footer rise in
-  gsap.utils.toArray<HTMLElement>('.section-head, .footer-cta, .footer-links').forEach((el) => {
+  revealTargets.forEach((element) => {
     gsap.fromTo(
-      el,
+      element,
       { opacity: 0, y: 40 },
       {
         opacity: 1,
         y: 0,
         duration: 1.1,
         ease: 'power3.out',
-        scrollTrigger: { trigger: el, start: 'top 88%', once: true },
+        scrollTrigger: { trigger: element, start: 'top 88%', once: true },
       }
     );
   });
+
+  void document.fonts.ready.then(() => ScrollTrigger.refresh());
 }

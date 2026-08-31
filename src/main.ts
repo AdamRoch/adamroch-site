@@ -1,15 +1,10 @@
 import './style.css';
-import { initWebGL } from './webgl';
+import { initParticles } from './particles';
 import { initAnimations } from './animations';
 import { initModals } from './modal';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-const canvas = document.querySelector<HTMLCanvasElement>('#gl');
-const gl = canvas ? initWebGL(canvas, reduced) : null;
-
-initAnimations({
-  reduced,
-  onScroll: (progress) => gl?.setScroll(progress),
-});
+const particlesCanvas = document.querySelector<HTMLCanvasElement>('#particles');
+const particles = particlesCanvas ? initParticles(particlesCanvas, reduced) : null;
+initAnimations({ reduced, onMorph: (progress) => particles?.setMorph(progress) });
 initModals();

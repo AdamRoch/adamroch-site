@@ -11,170 +11,117 @@
       href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap"
       rel="stylesheet"
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
-    <canvas id="gl"></canvas>
     <div class="grain" aria-hidden="true"></div>
 
-    <nav class="site-nav">
-      <a class="nav-wordmark" href="#hero">Adam Roch</a>
-      <div class="nav-links">
-        <a href="#experiments">Lab</a>
-        <a href="#manifesto">This site</a>
-        <a href="#contact">Contact</a>
+    <header class="top-bar">
+      <a class="wordmark" href="#hero" aria-label="Adam Roch, back to top">Adam Roch</a>
+      <div class="top-bar-right">
+        <p class="top-meta">Austin, TX <span aria-hidden="true">&middot;</span> <span data-clock>--:-- GMT-6</span></p>
+        <a class="btn btn-solid top-cta" href="#contact">Say hello</a>
       </div>
+    </header>
+
+    <nav class="seg-nav is-hidden" aria-label="Page sections">
+      <a href="#experiments" data-section="experiments">Lab</a>
+      <a href="#manifesto" data-section="manifesto">This site</a>
+      <a href="#contact" data-section="contact">Contact</a>
     </nav>
 
     <main>
-      <!-- attention -->
       <section id="hero">
-        <div class="hero-inner">
-          <h1 class="hero-name">
-            <span class="line"><span data-split>Adam</span></span>
-            <span class="line"><span data-split>Roch</span></span>
+        <div class="hero-shell">
+          <p class="micro-label hero-label">Adam Roch <span aria-hidden="true">&mdash;</span> Creative Engineer</p>
+          <h1
+            class="hero-statement"
+            aria-label="I make things for the web — every page a different design language."
+          >
+            <span data-split aria-hidden="true">I make things for the web &mdash; every page a different design language.</span>
           </h1>
-          <div class="hero-side">
+          <div class="hero-foot">
+            <p class="scroll-cue" aria-hidden="true">Scroll <span>&darr;</span></p>
             <p class="hero-role">
-              <strong>Creative engineer</strong> in Austin, TX — currently at GauntletAI. This
+              Creative engineer in Austin, TX &mdash; currently at GauntletAI. This
               domain is a workbench: a place to push browsers until they complain.
             </p>
-            <div class="hero-cta">
-              <a class="btn btn-solid" href="#experiments">Enter the lab</a>
-              <a class="btn btn-ghost" href="#manifesto">This site</a>
-            </div>
           </div>
         </div>
-        <div class="scroll-cue" aria-hidden="true">Scroll</div>
       </section>
 
-      <!-- interest -->
-      <div class="marquee" aria-hidden="true">
-        <div class="marquee-track">
-          <div class="marquee-group">
-            <span class="marquee-item">Creative Engineering</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item outline">WebGL</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item">Motion Design</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item outline">GLSL Shaders</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item">Typography</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item outline">Interaction</span>
-            <span class="marquee-sep">/</span>
-          </div>
-          <div class="marquee-group">
-            <span class="marquee-item">Creative Engineering</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item outline">WebGL</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item">Motion Design</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item outline">GLSL Shaders</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item">Typography</span>
-            <span class="marquee-sep">/</span>
-            <span class="marquee-item outline">Interaction</span>
-            <span class="marquee-sep">/</span>
-          </div>
-        </div>
+      <div class="meta-strip" aria-label="Areas of practice">
+        <span>Creative engineering</span>
+        <span aria-hidden="true">/</span>
+        <span>WebGL</span>
+        <span aria-hidden="true">/</span>
+        <span>Motion</span>
+        <span aria-hidden="true">/</span>
+        <span>GLSL</span>
+        <span aria-hidden="true">/</span>
+        <span>Typography</span>
+        <span aria-hidden="true">/</span>
+        <span>Interaction</span>
       </div>
 
       <section id="experiments" class="section-pad">
         <div class="section-head">
-          <h2>The lab</h2>
-          <p>Every door a different design language. Each one opens into its own world.</p>
+          <p class="micro-label">The lab</p>
+          <p class="section-intro">Every door a different design language. Each one opens into its own world.</p>
         </div>
-        <div class="accordion">
-          <div class="slice" tabindex="0">
-            <div
-              class="slice-bg"
-              style="background-image: url('https://picsum.photos/seed/shader-field/1200/1600')"
-            ></div>
-            <span class="slice-label">Shaders &amp; WebGL</span>
-            <div class="slice-content">
-              <h3>Shaders &amp; WebGL</h3>
-              <p>
-                GPU-driven visuals — raymarched scenes, particle systems, noise as a raw material.
-                This page is exhibit one.
-              </p>
-              <a class="slice-status slice-link" href="/lab/event-horizon/">Enter — Event Horizon</a>
-            </div>
+        <div class="work-list">
+          <a class="work-row" href="/lab/event-horizon/" data-thumb="https://picsum.photos/seed/shader-field/1200/1600">
+            <sup class="work-count">01</sup>
+            <h2 class="work-title">Shaders &amp; WebGL</h2>
+            <span class="work-meta"><span>GLSL &middot; Three.js</span><span>Live</span></span>
+            <span class="work-arrow" aria-hidden="true">&nearr;</span>
+            <span class="work-thumb" aria-hidden="true"><img src="https://picsum.photos/seed/shader-field/240/300" alt="" loading="lazy" /></span>
+          </a>
+          <div class="work-row" data-thumb="/images/adam-background.jpg">
+            <sup class="work-count">02</sup>
+            <h2 class="work-title">Type in Motion</h2>
+            <span class="work-meta"><span>Variable fonts &middot; Scroll</span><span>In the lab</span></span>
+            <span class="work-arrow" aria-hidden="true"></span>
+            <span class="work-thumb" aria-hidden="true"><img src="/images/adam-background.jpg" alt="" loading="lazy" /></span>
           </div>
-          <div class="slice" tabindex="0">
-            <div
-              class="slice-bg"
-              style="background-image: url('/images/adam-background.jpg')"
-            ></div>
-            <span class="slice-label">Type in Motion</span>
-            <div class="slice-content">
-              <h3>Type in Motion</h3>
-              <p>
-                Kinetic typography — variable fonts, scroll choreography, text treated as an
-                interface in itself.
-              </p>
-              <span class="slice-status">In the lab</span>
-            </div>
-          </div>
-          <div class="slice" tabindex="0">
-            <div
-              class="slice-bg"
-              style="background-image: url('https://picsum.photos/seed/interface-lab/1200/1600')"
-            ></div>
-            <span class="slice-label">Interface Lab</span>
-            <div class="slice-content">
-              <h3>Interface Lab</h3>
-              <p>
-                A rotating series of pages, each built in a completely different design language.
-                No templates allowed.
-              </p>
-              <a class="slice-status slice-link" href="/lab/living-world/">Enter — Living World</a>
-            </div>
-          </div>
-          <div class="slice" tabindex="0">
-            <div
-              class="slice-bg"
-              style="background-image: url('https://picsum.photos/seed/sound-code/1200/1600')"
-            ></div>
-            <span class="slice-label">Sound &amp; Code</span>
-            <div class="slice-content">
-              <h3>Sound &amp; Code</h3>
-              <p>
-                Audio-reactive visuals and WebAudio experiments — the browser as an instrument.
-              </p>
-              <a class="slice-status slice-link" href="/lab/sonic-terrain/">Enter — Sonic Terrain</a>
-            </div>
-          </div>
-          <div class="slice" tabindex="0">
-            <div
-              class="slice-bg"
-              style="background-image: url('https://picsum.photos/seed/first-person/1200/1600')"
-            ></div>
-            <span class="slice-label">First Person</span>
-            <div class="slice-content">
-              <h3>First Person</h3>
-              <p>First-person worlds you walk through — pointer and keyboard.</p>
-              <a class="slice-status slice-link" href="/lab/walkthrough/">Enter — Colossus Beach</a>
-            </div>
-          </div>
-          <div class="slice" tabindex="0">
-            <div
-              class="slice-bg"
-              style="background-image: url('https://picsum.photos/seed/printed-page/1200/1600')"
-            ></div>
-            <span class="slice-label">The Printed Page</span>
-            <div class="slice-content">
-              <h3>The Printed Page</h3>
-              <p>Scroll-driven editorial pieces — type as the landscape.</p>
-              <a class="slice-status slice-link" href="/lab/broadsheet/">Read — Attention Is a Material</a>
-            </div>
-          </div>
+          <a class="work-row" href="/lab/living-world/" data-thumb="https://picsum.photos/seed/interface-lab/1200/1600">
+            <sup class="work-count">03</sup>
+            <h2 class="work-title">Interface Lab</h2>
+            <span class="work-meta"><span>Systems</span><span>Live</span></span>
+            <span class="work-arrow" aria-hidden="true">&nearr;</span>
+            <span class="work-thumb" aria-hidden="true"><img src="https://picsum.photos/seed/interface-lab/240/300" alt="" loading="lazy" /></span>
+          </a>
+          <a class="work-row" href="/lab/sonic-terrain/" data-thumb="https://picsum.photos/seed/sound-code/1200/1600">
+            <sup class="work-count">04</sup>
+            <h2 class="work-title">Sound &amp; Code</h2>
+            <span class="work-meta"><span>WebAudio</span><span>Live</span></span>
+            <span class="work-arrow" aria-hidden="true">&nearr;</span>
+            <span class="work-thumb" aria-hidden="true"><img src="https://picsum.photos/seed/sound-code/240/300" alt="" loading="lazy" /></span>
+          </a>
+          <a class="work-row" href="/lab/walkthrough/" data-thumb="https://picsum.photos/seed/first-person/1200/1600">
+            <sup class="work-count">05</sup>
+            <h2 class="work-title">First Person</h2>
+            <span class="work-meta"><span>Pointer lock &middot; WebGL</span><span>Live</span></span>
+            <span class="work-arrow" aria-hidden="true">&nearr;</span>
+            <span class="work-thumb" aria-hidden="true"><img src="https://picsum.photos/seed/first-person/240/300" alt="" loading="lazy" /></span>
+          </a>
+          <a class="work-row" href="/lab/broadsheet/" data-thumb="https://picsum.photos/seed/printed-page/1200/1600">
+            <sup class="work-count">06</sup>
+            <h2 class="work-title">The Printed Page</h2>
+            <span class="work-meta"><span>Editorial &middot; Scroll</span><span>Live</span></span>
+            <span class="work-arrow" aria-hidden="true">&nearr;</span>
+            <span class="work-thumb" aria-hidden="true"><img src="https://picsum.photos/seed/printed-page/240/300" alt="" loading="lazy" /></span>
+          </a>
         </div>
       </section>
 
-      <!-- desire -->
       <section id="manifesto" class="section-pad">
+        <p class="micro-label manifesto-label">This site</p>
         <div class="manifesto-grid">
           <div class="manifesto-pin">
             <h2>The site <em>is</em> the experiment.</h2>
@@ -184,18 +131,23 @@
             they complain. Every page here is built in a different design language, because the
             medium deserves more than templates. Nothing here is finished, and that is the point.
           </p>
+          <div class="particle-frame" aria-hidden="true">
+            <canvas id="particles"></canvas>
+          </div>
         </div>
       </section>
 
-      <figure class="cinema">
-        <img
-          src="https://picsum.photos/seed/ember-cinema/1920/1080"
-          alt="Abstract cinematic texture"
-          loading="lazy"
-        />
-      </figure>
+      <section class="media-band" aria-label="Visual exhibits">
+        <figure class="media-card">
+          <img src="/images/lagoon.jpg" alt="A tropical lagoon between steep green cliffs" loading="lazy" />
+          <figcaption>Exhibit A <span aria-hidden="true">&mdash;</span> Somewhere warm</figcaption>
+        </figure>
+        <figure class="media-card">
+          <img src="/images/earth-limb.jpg" alt="Earth lit by the sun against black space" loading="lazy" />
+          <figcaption>Exhibit B <span aria-hidden="true">&mdash;</span> Somewhere far</figcaption>
+        </figure>
+      </section>
 
-      <!-- action -->
       <footer id="contact">
         <h2 class="footer-cta">
           Say hello.<br />
@@ -215,7 +167,7 @@
             <a href="https://github.com/AdamRoch" target="_blank" rel="noopener">GitHub</a>
             <a href="#hero">Back to top</a>
           </div>
-          <p class="footer-note">Adam Roch — Austin, TX — a perpetual work in progress</p>
+          <p class="footer-note">Adam Roch <span aria-hidden="true">&mdash;</span> Austin, TX <span aria-hidden="true">&mdash;</span> a perpetual work in progress</p>
         </div>
       </footer>
     </main>
