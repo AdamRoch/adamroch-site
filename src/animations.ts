@@ -158,83 +158,11 @@ function initSegmentedNav(): void {
   heroObserver.observe(hero);
 }
 
-function initWorkPreview(reduced: boolean): void {
-  if (reduced || !window.matchMedia('(pointer: fine)').matches) return;
-
-  const rows = Array.from(document.querySelectorAll<HTMLElement>('.work-row'));
-  if (rows.length === 0) return;
-
-  const preview = document.createElement('div');
-  preview.className = 'work-preview';
-  preview.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(preview);
-
-  const xTo = gsap.quickTo(preview, 'x', { duration: 0.42, ease: 'power3.out' });
-  const yTo = gsap.quickTo(preview, 'y', { duration: 0.42, ease: 'power3.out' });
-  let activeRow: HTMLElement | null = null;
-
-  const positionPreview = (clientX: number, clientY: number, immediate = false): void => {
-    const width = preview.offsetWidth;
-    const height = preview.offsetHeight;
-    const x = gsap.utils.clamp(12, Math.max(12, window.innerWidth - width - 12), clientX + 24);
-    const y = gsap.utils.clamp(12, Math.max(12, window.innerHeight - height - 12), clientY + 24);
-    if (immediate) gsap.set(preview, { x, y });
-    else {
-      xTo(x);
-      yTo(y);
-    }
-  };
-
-  const show = (row: HTMLElement, clientX?: number, clientY?: number): void => {
-    const source = row.dataset.thumb;
-    if (!source) return;
-    activeRow = row;
-    preview.style.backgroundImage = `url("${source}")`;
-
-    if (clientX === undefined || clientY === undefined) {
-      const bounds = row.getBoundingClientRect();
-      positionPreview(bounds.left + bounds.width * 0.62, bounds.top + bounds.height * 0.2, true);
-    } else {
-      positionPreview(clientX, clientY, true);
-    }
-
-    gsap.fromTo(
-      preview,
-      { autoAlpha: 0, scale: 0.9 },
-      { autoAlpha: 1, scale: 1, duration: 0.35, ease: 'power3.out', overwrite: true }
-    );
-  };
-
-  const hide = (row: HTMLElement): void => {
-    if (activeRow !== row) return;
-    activeRow = null;
-    gsap.to(preview, {
-      autoAlpha: 0,
-      scale: 0.96,
-      duration: 0.2,
-      ease: 'power2.out',
-      overwrite: true,
-    });
-  };
-
-  rows.forEach((row) => {
-    row.addEventListener('pointerenter', (event) => show(row, event.clientX, event.clientY));
-    row.addEventListener('pointerleave', () => hide(row));
-    row.addEventListener('focus', () => show(row));
-    row.addEventListener('blur', () => hide(row));
-  });
-
-  window.addEventListener('pointermove', (event) => {
-    if (activeRow) positionPreview(event.clientX, event.clientY);
-  });
-}
-
 export function initAnimations({ reduced, onScroll, onTheme }: AnimOptions): void {
   initTheme(onTheme);
   initFooterGlass();
   initClock();
   initSegmentedNav();
-  initWorkPreview(reduced);
 
   const splitTargets = document.querySelectorAll<HTMLElement>('[data-split]');
   const chars = Array.from(splitTargets).flatMap((element) => splitChars(element));

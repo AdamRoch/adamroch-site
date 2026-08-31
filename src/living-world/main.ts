@@ -159,9 +159,14 @@ function makeSkyTexture(): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
-const skyMat = new THREE.MeshBasicMaterial({ map: makeSkyTexture(), fog: false });
-const sky = new THREE.Mesh(new THREE.PlaneGeometry(120, 60), skyMat);
-sky.position.set(0, 12, -40);
+// sky dome: inverted sphere so no plane edge can ever show mid-ride
+const skyMat = new THREE.MeshBasicMaterial({
+  map: makeSkyTexture(),
+  fog: false,
+  side: THREE.BackSide,
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(65, 32, 16), skyMat);
+sky.position.set(0, 0, -8);
 scene.add(sky);
 
 /* ————— moss arches ————— */
@@ -475,36 +480,57 @@ function runScan(): void {
   });
 }
 
-/* ————— explore ride: a camera flight through three archways and home ————— */
+/* ————— explore ride: a camera flight through the archways and home ————— */
 
-// control points thread the arch openings (verified clear of every tube):
-// out through the big left arch and the small center one, a wide sweep
-// around the back field, then home through the right arch
+// The path is anchored to the arch openings: approach/anchor/exit points
+// are derived from each threaded arch's own transform, so the pass stays
+// perpendicular to the opening. Between the two passes the camera rides a
+// circular arc around the back field whose tangents match both arch
+// corridors exactly — no kinks, no heading reversals.
+
+function openingNormal(def: ArchDef): THREE.Vector3 {
+  return new THREE.Vector3(Math.sin(def.rotY), 0, Math.cos(def.rotY));
+}
+
+function openingPoint(def: ArchDef, along: number, height: number): THREE.Vector3 {
+  const n = openingNormal(def);
+  return new THREE.Vector3(def.x + n.x * along, height, def.z + n.z * along);
+}
+
+const wayOut = ARCHES[0]; // big left arch — exit through it
+const wayHome = ARCHES[1]; // right arch — return through it
+
+// back-field arc: circle centered (-0.14, -9.47) r 6.6, tangent-matched to
+// the wayOut exit heading and the wayHome approach corridor; sampled every
+// 30° of heading. The dip to y 1.2 at the rightmost point ducks under the
+// small back-right arch's span (clearance-checked in .tmp/verify-ride.mjs)
 const rideCurve = new THREE.CatmullRomCurve3(
   [
-    new THREE.Vector3(0, 1.5, 9.5),
-    new THREE.Vector3(-2.2, 1.35, 3.5),
-    new THREE.Vector3(-3.3, 1.25, -1.4),
-    new THREE.Vector3(-4.4, 1.25, -3.5),
-    new THREE.Vector3(-5.5, 1.3, -5.6),
-    new THREE.Vector3(-2.0, 1.35, -6.4),
-    new THREE.Vector3(0.95, 1.0, -5.6),
-    new THREE.Vector3(0.6, 1.0, -7.5),
-    new THREE.Vector3(0.25, 1.05, -9.5),
-    new THREE.Vector3(1.2, 1.6, -12.5),
-    new THREE.Vector3(6.0, 1.75, -12.3),
-    new THREE.Vector3(9.2, 1.8, -11.0),
-    new THREE.Vector3(5.9, 1.4, -6.4),
-    new THREE.Vector3(4.3, 1.3, -4.5),
-    new THREE.Vector3(2.7, 1.4, -2.6),
-    new THREE.Vector3(1.2, 1.5, 3.5),
-    new THREE.Vector3(0, 1.5, 9.5),
+    new THREE.Vector3(0, 1.5, 9.5), // idle framing
+    new THREE.Vector3(-1.3, 1.45, 4.6), // lead-in
+    openingPoint(wayOut, 3.2, 1.42), // approach
+    openingPoint(wayOut, 0, 1.45), // through the opening
+    openingPoint(wayOut, -3.2, 1.62), // exit, heading matched to the arc
+    new THREE.Vector3(-6.2, 1.95, -10.2),
+    new THREE.Vector3(-5.85, 2.15, -12.77),
+    new THREE.Vector3(-3.44, 2.5, -15.19),
+    new THREE.Vector3(-0.14, 2.65, -16.07), // crest, whole cluster in view
+    new THREE.Vector3(3.16, 2.5, -15.19),
+    new THREE.Vector3(5.58, 1.9, -12.77),
+    new THREE.Vector3(6.7, 0.95, -9.5), // duck under the back-right arch
+    new THREE.Vector3(5.58, 1.35, -6.17),
+    openingPoint(wayHome, -0.95, 1.3), // tangent into the home corridor
+    openingPoint(wayHome, 0, 1.3), // through the opening
+    openingPoint(wayHome, 2.5, 1.38), // exit
+    new THREE.Vector3(1.2, 1.45, 3.4), // lead home
+    new THREE.Vector3(0, 1.5, 9.5), // idle framing
   ],
   false,
   'centripetal'
 );
 
 const LOOK_HOME = new THREE.Vector3(0, 1.3, -2);
+const ARCH_FOCUS = new THREE.Vector3(0, 1.8, -6.8);
 const rideLook = new THREE.Vector3();
 const rideState = { u: 0 };
 let riding = false;
@@ -532,12 +558,12 @@ if (reduced) {
           camera.updateProjectionMatrix();
         },
       })
-      .to(rideState, { u: 1, duration: 16, ease: 'power1.inOut' }, 0)
+      .to(rideState, { u: 1, duration: 18, ease: 'power1.inOut' }, 0)
       .to(
         camera,
         {
-          fov: 34,
-          duration: 8,
+          fov: 38,
+          duration: 12,
           ease: 'sine.inOut',
           yoyo: true,
           repeat: 1,
@@ -686,7 +712,14 @@ function frame(): void {
   if (riding) {
     const u = rideState.u;
     camera.position.copy(rideCurve.getPointAt(u));
-    rideLook.copy(rideCurve.getPointAt(Math.min(u + 0.03, 1)));
+    // lead the camera by a long lookahead so heading changes stay gradual
+    rideLook.copy(rideCurve.getPointAt(Math.min(u + 0.06, 1)));
+    // mid-flight, pull the gaze toward the arch cluster so the subject stays
+    // framed instead of staring down the tangent into empty back field;
+    // hold the pull until the final lead home so the arches recede in frame
+    const focusWindow =
+      THREE.MathUtils.smoothstep(u, 0.1, 0.3) * (1 - THREE.MathUtils.smoothstep(u, 0.8, 0.97));
+    rideLook.lerp(ARCH_FOCUS, focusWindow * 0.72);
     // ease the gaze from/to the idle framing at both ends of the flight
     const homeBlend = Math.max(
       1 - THREE.MathUtils.smoothstep(u, 0, 0.08),
