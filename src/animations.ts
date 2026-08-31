@@ -3,9 +3,12 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
+type ThemeName = 'dark' | 'light';
+
 interface AnimOptions {
   reduced: boolean;
-  onMorph: (progress: number) => void;
+  onScroll: (progress: number) => void;
+  onTheme: (theme: ThemeName) => void;
 }
 
 const $ = <T extends Element>(selector: string): T | null => document.querySelector<T>(selector);
@@ -67,6 +70,58 @@ function initClock(): void {
 
   update();
   window.setInterval(update, 30_000);
+}
+
+// theme toggle: data-theme is set pre-paint by the inline script in index.html;
+// this wires the buttons, persistence, and the particle backdrop switch
+function initTheme(onTheme: (theme: ThemeName) => void): void {
+  const root = document.documentElement;
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-theme-option]'));
+  const metaTheme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+
+  const apply = (theme: ThemeName, persist: boolean): void => {
+    root.dataset.theme = theme;
+    if (persist) {
+      try {
+        localStorage.setItem('adam-theme', theme);
+      } catch {
+        /* private mode — theme just won't persist */
+      }
+    }
+    if (metaTheme) metaTheme.content = theme === 'light' ? '#bfe9f2' : '#0b0b0d';
+    buttons.forEach((btn) => {
+      const active = btn.dataset.themeOption === theme;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    onTheme(theme);
+  };
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next: ThemeName = btn.dataset.themeOption === 'light' ? 'light' : 'dark';
+      if (next !== root.dataset.theme) apply(next, true);
+    });
+  });
+
+  apply(root.dataset.theme === 'light' ? 'light' : 'dark', false);
+}
+
+// the footer turns to glass as you scroll into it (light theme styling)
+function initFooterGlass(): void {
+  const footer = document.getElementById('contact');
+  if (!footer) return;
+  const update = (): void => {
+    const rect = footer.getBoundingClientRect();
+    const t = Math.min(
+      1,
+      Math.max(0, (window.innerHeight - rect.top) / (window.innerHeight * 0.65))
+    );
+    document.documentElement.style.setProperty('--falpha', (0.88 - t * 0.46).toFixed(3));
+  };
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
 }
 
 function initSegmentedNav(): void {
@@ -174,7 +229,9 @@ function initWorkPreview(reduced: boolean): void {
   });
 }
 
-export function initAnimations({ reduced, onMorph }: AnimOptions): void {
+export function initAnimations({ reduced, onScroll, onTheme }: AnimOptions): void {
+  initTheme(onTheme);
+  initFooterGlass();
   initClock();
   initSegmentedNav();
   initWorkPreview(reduced);
@@ -204,12 +261,11 @@ export function initAnimations({ reduced, onMorph }: AnimOptions): void {
     .to('.top-bar', { opacity: 1, y: 0, duration: 0.9 }, 0.55)
     .to(['.hero-role', '.scroll-cue'], { opacity: 1, y: 0, duration: 1 }, 0.85);
 
+  // the particle backdrop follows whole-page scroll
   ScrollTrigger.create({
-    trigger: '#manifesto',
-    start: 'top bottom',
-    end: 'bottom top',
-    scrub: true,
-    onUpdate: (self) => onMorph(self.progress),
+    start: 0,
+    end: 'max',
+    onUpdate: (self) => onScroll(self.progress),
   });
 
   if (manifestoText && words.length > 0) {

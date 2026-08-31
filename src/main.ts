@@ -4,7 +4,12 @@ import { initAnimations } from './animations';
 import { initModals } from './modal';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const particlesCanvas = document.querySelector<HTMLCanvasElement>('#particles');
-const particles = particlesCanvas ? initParticles(particlesCanvas, reduced) : null;
-initAnimations({ reduced, onMorph: (progress) => particles?.setMorph(progress) });
+const canvas = document.querySelector<HTMLCanvasElement>('#gl-bg');
+const particles = canvas ? initParticles(canvas, reduced) : null;
+
+initAnimations({
+  reduced,
+  onScroll: (progress) => particles?.setScroll(progress),
+  onTheme: (theme) => particles?.setTheme(theme),
+});
 initModals();

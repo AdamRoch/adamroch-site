@@ -6,6 +6,16 @@
     <meta name="description" content="Adam Roch — creative engineer in Austin, TX, currently at GauntletAI. This domain is a workbench: each page a different answer to what a website can be." />
     <meta name="theme-color" content="#0b0b0d" />
     <title>Adam Roch — Creative Engineer</title>
+    <script>
+      // set the theme before first paint to avoid a flash of the wrong one
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem('adam-theme') ||
+          (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      } catch {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
     <link rel="preconnect" href="https://api.fontshare.com" />
     <link
       href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap"
@@ -20,11 +30,16 @@
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
+    <canvas id="gl-bg" aria-hidden="true"></canvas>
 
     <header class="top-bar">
       <a class="wordmark" href="#hero" aria-label="Adam Roch, back to top">Adam Roch</a>
       <div class="top-bar-right">
         <p class="top-meta">Austin, TX <span aria-hidden="true">&middot;</span> <span data-clock>--:-- GMT-6</span></p>
+        <div class="theme-toggle" role="group" aria-label="Color theme">
+          <button type="button" data-theme-option="dark">Dark</button>
+          <button type="button" data-theme-option="light">Light</button>
+        </div>
         <a class="btn btn-solid top-cta" href="#contact">Say hello</a>
       </div>
     </header>
@@ -131,9 +146,6 @@
             they complain. Every page here is built in a different design language, because the
             medium deserves more than templates. Nothing here is finished, and that is the point.
           </p>
-          <div class="particle-frame" aria-hidden="true">
-            <canvas id="particles"></canvas>
-          </div>
         </div>
       </section>
 

@@ -1,154 +1,235 @@
 import * as THREE from 'three';
 
+export type ThemeName = 'dark' | 'light';
+
 export interface ParticleHandle {
-  setMorph: (progress: number) => void;
+  setTheme: (theme: ThemeName) => void;
+  setScroll: (progress: number) => void;
 }
 
-const POINT_COUNT = 70_000;
-const TAU = Math.PI * 2;
+// Fullscreen particle backdrop for the homepage, two systems cross-faded by
+// theme: "Nebula" (dark) — starfield + three volumetric clouds, camera pans on
+// scroll; "River" (light) — caustic shallow-water band + dark-blue particle
+// current that swells (denser, bigger) on scroll.
 
-const vertexShader = /* glsl */ `
+const DPR = Math.min(window.devicePixelRatio, 2);
+
+const SOFT_DOT_FRAG = /* glsl */ `
+  precision highp float;
+  uniform float uAlpha;
+  varying vec3 vColor;
+  varying float vFade;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    float a = smoothstep(0.5, 0.0, d);
+    a *= a * uAlpha * vFade;
+    if (a < 0.003) discard;
+    gl_FragColor = vec4(vColor, a);
+  }
+`;
+
+// ————— nebula (dark theme) —————
+
+const STARS_VERT = /* glsl */ `
+  attribute float aRand;
+  attribute float aT;
   uniform float uTime;
-  uniform float uMorph;
+  uniform float uPixelRatio;
+  varying vec3 vColor;
+  varying float vFade;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = 0.85 * uPixelRatio * (0.4 + aRand) * (3.0 / -mv.z);
+    float tw = 0.55 + 0.45 * sin(uTime * (1.0 + aRand * 2.5) + aRand * 40.0);
+    vec3 tint = aT < 0.6 ? vec3(1.0) : (aT < 0.85 ? vec3(0.72, 0.84, 1.0) : vec3(1.0, 0.88, 0.72));
+    vColor = tint;
+    vFade = tw * smoothstep(10.0, 2.5, -mv.z);
+  }
+`;
+
+const NEBULA_VERT = /* glsl */ `
+  attribute float aRand;
+  attribute vec3 aColor;
+  uniform float uTime;
   uniform float uSize;
   uniform float uPixelRatio;
-
-  attribute vec3 aTarget;
-  attribute float aRandom;
-
-  varying float vDepth;
-
+  varying vec3 vColor;
+  varying float vFade;
   void main() {
-    vec3 point = mix(position, aTarget, uMorph);
-    float phase = aRandom * 31.4159;
-    vec3 drift = vec3(
-      sin(uTime * 0.72 + phase),
-      cos(uTime * 0.61 + phase * 1.37),
-      sin(uTime * 0.53 + phase * 1.91)
-    ) * 0.03;
-
-    vec4 viewPosition = modelViewMatrix * vec4(point + drift, 1.0);
-    gl_Position = projectionMatrix * viewPosition;
-    gl_PointSize = uSize * uPixelRatio * (3.0 / max(0.1, -viewPosition.z));
-    vDepth = clamp((-viewPosition.z - 2.0) / 2.4, 0.0, 1.0);
+    vec3 p = position;
+    // slow differential swirl — inner points orbit faster, like a galaxy
+    float ang = uTime * 0.035 * (0.4 + aRand) / (0.35 + 0.4 * length(p.xz));
+    float c = cos(ang), s = sin(ang);
+    p.xz = mat2(c, -s, s, c) * p.xz;
+    p += 0.05 * vec3(
+      sin(uTime * 0.5 + aRand * 6.2831),
+      cos(uTime * 0.4 + aRand * 12.566),
+      sin(uTime * 0.3 + aRand * 3.0)
+    );
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = uSize * uPixelRatio * (0.5 + aRand * 1.7) * (3.0 / -mv.z);
+    vColor = aColor;
+    vFade = smoothstep(8.0, 2.0, -mv.z);
   }
 `;
 
-const fragmentShader = /* glsl */ `
+interface CloudSpec {
+  center: [number, number, number];
+  spread: [number, number, number];
+  colA: number;
+  colB: number;
+}
+
+// teal / violet / ember — pulled from the lagoon and earth-limb photos
+const CLOUDS: CloudSpec[] = [
+  { center: [-1.1, 0.45, -1.2], spread: [1.5, 0.8, 0.9], colA: 0x2fd8c0, colB: 0x14586e },
+  { center: [1.0, -0.35, -0.8], spread: [1.3, 0.9, 0.8], colA: 0x9a6bff, colB: 0x3a2370 },
+  { center: [0.15, 0.95, -1.6], spread: [1.1, 0.6, 0.7], colA: 0xffb054, colB: 0x8a3d1a },
+];
+
+// ————— river (light theme) —————
+
+const QUAD_VERT = /* glsl */ `
+  void main() {
+    gl_Position = vec4(position, 1.0);
+  }
+`;
+
+// shallow tropical water: pale sandbar mid-channel → teal banks, caustic
+// light webs advected downstream, sun glints, foam at the shoreline
+const RIVER_FRAG = /* glsl */ `
   precision highp float;
+  uniform float uTime;
+  uniform vec2 uRes;
+  uniform float uFade;
 
-  varying float vDepth;
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 4; i++) {
+      v += a * noise(p);
+      p = p * 2.03 + vec2(11.3, 7.9);
+      a *= 0.5;
+    }
+    return v;
+  }
+
+  // rippling light webs, like sun through shallow clear water
+  float caustics(vec2 uv, float time) {
+    vec2 p = mod(uv * 6.2831, 6.2831) - 250.0;
+    vec2 i = p;
+    float c = 1.0;
+    float inten = 0.005;
+    for (int n = 0; n < 4; n++) {
+      float t = time * (1.0 - (3.5 / float(n + 1)));
+      i = p + vec2(cos(t - i.x) + sin(t + i.y), sin(t - i.y) + cos(t + i.x));
+      c += 1.0 / length(vec2(p.x / (sin(i.x + t) / inten), p.y / (cos(i.y + t) / inten)));
+    }
+    c /= 4.0;
+    c = 1.17 - pow(c, 1.4);
+    return pow(abs(c), 7.0);
+  }
 
   void main() {
-    float distanceFromCenter = length(gl_PointCoord - 0.5) * 2.0;
-    float alpha = smoothstep(1.0, 0.08, distanceFromCenter) * 0.72;
-    if (alpha < 0.01) discard;
+    vec2 uv = gl_FragCoord.xy / uRes.xy;
+    // world units on the z=0 plane, so the particles share the same river
+    float worldH = 3.17; // visible height at camera z = 3.4, fov 50
+    float worldX = (uv.x - 0.5) * (uRes.x / uRes.y) * worldH;
+    float worldY = (uv.y - 0.5) * worldH;
+    float t = uTime * 0.4;
 
-    vec3 color = mix(vec3(0.48), vec3(1.0), 1.0 - vDepth);
-    gl_FragColor = vec4(color, alpha);
+    // the river: a meandering band through the sky (static banks, moving water)
+    float center = -0.25 + 0.28 * sin(worldX * 0.8) + 0.14 * sin(worldX * 1.7);
+    float halfW = 0.55 + 0.10 * sin(worldX * 1.3 + 1.3);
+    float bank = abs(worldY - center);
+
+    float inside = 1.0 - smoothstep(halfW - 0.10, halfW, bank);
+    float depth = smoothstep(0.0, halfW, bank);
+
+    vec3 cSand = vec3(0.851, 0.957, 0.937);
+    vec3 cAqua = vec3(0.659, 0.902, 0.867);
+    vec3 cTurq = vec3(0.373, 0.792, 0.733);
+    vec3 cDeep = vec3(0.114, 0.498, 0.514);
+
+    // large soft patches of sunlight and sand through clear water
+    float patch = fbm(vec2(worldX * 0.9 - t * 0.3, worldY * 1.6));
+    vec3 col = mix(cSand, cAqua, smoothstep(0.25, 0.75, patch));
+    col = mix(col, cTurq, depth * 0.55);
+    col = mix(col, cDeep, depth * depth * 0.6);
+
+    // caustic light networks rippling downstream
+    vec2 cuv = vec2(worldX * 0.55 - t * 0.28, worldY * 1.1);
+    float ca = caustics(cuv, t * 0.5);
+    col += vec3(0.95, 1.0, 0.98) * ca * 0.6;
+
+    // sun glints on the ripple crests
+    float glint = pow(noise(vec2(worldX * 9.0 - t * 1.6, worldY * 14.0)), 18.0);
+    col += vec3(1.0) * glint * 0.5;
+
+    // faint white water hugging the banks
+    float foamBand = smoothstep(halfW * 0.55, halfW * 0.95, bank);
+    float foamN = fbm(vec2(worldX * 3.0 - t * 0.9, worldY * 6.0));
+    col = mix(col, vec3(0.96, 1.0, 0.99), foamBand * foamN * 0.45);
+
+    gl_FragColor = vec4(col, inside * 0.97 * uFade);
   }
 `;
 
-function createRandom(seed = 0x5f3759df): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
-    return state / 4_294_967_296;
-  };
-}
-
-function fillTorusKnot(
-  positions: Float32Array,
-  randomValues: Float32Array,
-  random: () => number
-): void {
-  const majorRadius = 0.68;
-  const knotRadius = 0.26;
-  const tubeRadius = 0.12;
-  const p = 2;
-  const q = 3;
-  const tilt = 0.58;
-  const turn = -0.2;
-  const cosTilt = Math.cos(tilt);
-  const sinTilt = Math.sin(tilt);
-  const cosTurn = Math.cos(turn);
-  const sinTurn = Math.sin(turn);
-
-  for (let i = 0; i < POINT_COUNT; i += 1) {
-    const t = random() * TAU;
-    const tubeAngle = random() * TAU;
-    const cosQt = Math.cos(q * t);
-    const sinQt = Math.sin(q * t);
-    const cosPt = Math.cos(p * t);
-    const sinPt = Math.sin(p * t);
-    const ring = majorRadius + knotRadius * cosQt;
-
-    const centerX = ring * cosPt;
-    const centerY = ring * sinPt;
-    const centerZ = knotRadius * sinQt;
-
-    let tangentX = -knotRadius * q * sinQt * cosPt - ring * p * sinPt;
-    let tangentY = -knotRadius * q * sinQt * sinPt + ring * p * cosPt;
-    let tangentZ = knotRadius * q * cosQt;
-    const tangentLength = Math.hypot(tangentX, tangentY, tangentZ);
-    tangentX /= tangentLength;
-    tangentY /= tangentLength;
-    tangentZ /= tangentLength;
-
-    let normalX: number;
-    let normalY: number;
-    let normalZ: number;
-    if (Math.abs(tangentZ) < 0.9) {
-      normalX = tangentY;
-      normalY = -tangentX;
-      normalZ = 0;
-    } else {
-      normalX = -tangentZ;
-      normalY = 0;
-      normalZ = tangentX;
+const WATER_VERT = /* glsl */ `
+  attribute float aRand;
+  attribute float aT;
+  uniform float uTime;
+  uniform float uSize;
+  uniform float uPixelRatio;
+  uniform float uDensity;
+  varying vec3 vColor;
+  varying float vFade;
+  uniform vec3 uDeep;
+  uniform vec3 uShallow;
+  uniform vec3 uFoam;
+  void main() {
+    // scroll-driven density: a fixed per-point subset sits offscreen until
+    // uDensity rises past its threshold — more water streams in as you scroll
+    if (aRand > uDensity) {
+      gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+      gl_PointSize = 0.0;
+      vColor = vec3(0.0);
+      vFade = 0.0;
+      return;
     }
-    const normalLength = Math.hypot(normalX, normalY, normalZ);
-    normalX /= normalLength;
-    normalY /= normalLength;
-    normalZ /= normalLength;
-
-    const binormalX = tangentY * normalZ - tangentZ * normalY;
-    const binormalY = tangentZ * normalX - tangentX * normalZ;
-    const binormalZ = tangentX * normalY - tangentY * normalX;
-    const radius = tubeRadius * (0.45 + Math.sqrt(random()) * 0.55) + (random() - 0.5) * 0.018;
-    const ringCos = Math.cos(tubeAngle) * radius;
-    const ringSin = Math.sin(tubeAngle) * radius;
-
-    const x = centerX + normalX * ringCos + binormalX * ringSin;
-    const y = centerY + normalY * ringCos + binormalY * ringSin;
-    const z = centerZ + normalZ * ringCos + binormalZ * ringSin;
-    const tiltedY = y * cosTilt - z * sinTilt;
-    const tiltedZ = y * sinTilt + z * cosTilt;
-
-    const offset = i * 3;
-    positions[offset] = x * cosTurn - tiltedY * sinTurn;
-    positions[offset + 1] = x * sinTurn + tiltedY * cosTurn;
-    positions[offset + 2] = tiltedZ;
-    randomValues[i] = random();
+    vec3 p = position;
+    // the current: advect left → right, wrap around, faster near the surface
+    float flow = uTime * (0.35 + aRand * 0.3 + p.y * 0.08);
+    p.x = mod(p.x + flow + 2.6, 5.2) - 2.6;
+    // undulation — two crossing wave trains
+    float wave = sin(p.x * 2.2 + uTime * 0.9 + aRand * 6.2831)
+               + 0.5 * sin(p.x * 4.1 - uTime * 1.3 + aRand * 3.0);
+    p.y += 0.14 * wave;
+    p.z += 0.08 * cos(p.x * 1.7 + uTime * 0.7);
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = uSize * uPixelRatio * (0.5 + aRand) * (3.0 / -mv.z);
+    float crest = clamp(wave * 0.5 + 0.5, 0.0, 1.0);
+    vec3 base = mix(uDeep, uShallow, aT);
+    vColor = mix(base, uFoam, crest * crest * 0.85);
+    vFade = smoothstep(2.6, 2.1, abs(p.x)) * smoothstep(6.5, 2.5, -mv.z);
   }
-}
-
-function fillSphereCloud(targets: Float32Array, random: () => number): void {
-  for (let i = 0; i < POINT_COUNT; i += 1) {
-    const theta = random() * TAU;
-    const z = 1 - 2 * random();
-    const radial = Math.sqrt(Math.max(0, 1 - z * z));
-    const wave = Math.sin(theta * 4 + z * 7) * 0.055;
-    const scatter = (random() - 0.5) * 0.2 + Math.pow(random(), 9) * 0.42;
-    const radius = 0.76 + wave + scatter;
-    const jitter = 0.025;
-    const offset = i * 3;
-
-    targets[offset] = radial * Math.cos(theta) * radius + (random() - 0.5) * jitter;
-    targets[offset + 1] = z * radius + (random() - 0.5) * jitter;
-    targets[offset + 2] = radial * Math.sin(theta) * radius + (random() - 0.5) * jitter;
-  }
-}
+`;
 
 export function initParticles(canvas: HTMLCanvasElement, reduced: boolean): ParticleHandle {
   const renderer = new THREE.WebGLRenderer({
@@ -157,114 +238,310 @@ export function initParticles(canvas: HTMLCanvasElement, reduced: boolean): Part
     antialias: false,
     powerPreference: 'high-performance',
   });
+  renderer.setPixelRatio(DPR);
   renderer.setClearColor(0x000000, 0);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 20);
-  camera.position.set(0, 0, 3.2);
-  camera.lookAt(0, 0, 0);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 30);
+  camera.position.z = 3.4;
 
-  const positions = new Float32Array(POINT_COUNT * 3);
-  const targets = new Float32Array(POINT_COUNT * 3);
-  const randomValues = new Float32Array(POINT_COUNT);
-  const random = createRandom();
-  fillTorusKnot(positions, randomValues, random);
-  fillSphereCloud(targets, random);
+  // ——— nebula system (dark theme) ———
+  const nebulaGroup = new THREE.Group();
+  nebulaGroup.position.x = 0.25;
+  scene.add(nebulaGroup);
+  const nebulaMats: { mat: THREE.ShaderMaterial; baseAlpha: number }[] = [];
 
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('aTarget', new THREE.BufferAttribute(targets, 3));
-  geometry.setAttribute('aRandom', new THREE.BufferAttribute(randomValues, 1));
-  geometry.computeBoundingSphere();
-
-  const pixelRatio = Math.min(window.devicePixelRatio, 2);
-  const uniforms = {
-    uTime: { value: reduced ? 12 : 0 },
-    uMorph: { value: reduced ? 0.35 : 0 },
-    uSize: { value: 1.6 },
-    uPixelRatio: { value: pixelRatio },
-  };
-  const material = new THREE.ShaderMaterial({
-    vertexShader,
-    fragmentShader,
-    uniforms,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    transparent: true,
-  });
-  const points = new THREE.Points(geometry, material);
-  scene.add(points);
-
-  const container = canvas.parentElement ?? canvas;
-  const cameraTarget = new THREE.Vector2();
-  let frameId = 0;
-  let running = false;
-  let lastFrame = performance.now();
-
-  const render = (): void => {
-    camera.lookAt(0, 0, 0);
-    renderer.render(scene, camera);
-  };
-
-  const resize = (): void => {
-    const bounds = container.getBoundingClientRect();
-    if (bounds.width < 1 || bounds.height < 1) return;
-    const nextPixelRatio = Math.min(window.devicePixelRatio, 2);
-    renderer.setPixelRatio(nextPixelRatio);
-    renderer.setSize(bounds.width, bounds.height, false);
-    camera.aspect = bounds.width / bounds.height;
-    camera.updateProjectionMatrix();
-    uniforms.uPixelRatio.value = nextPixelRatio;
-    render();
-  };
-
-  const frame = (now: number): void => {
-    if (!running) return;
-    const delta = Math.min((now - lastFrame) / 1_000, 0.1);
-    lastFrame = now;
-    uniforms.uTime.value += delta;
-    camera.position.x += (cameraTarget.x - camera.position.x) * 0.045;
-    camera.position.y += (cameraTarget.y - camera.position.y) * 0.045;
-    render();
-    frameId = requestAnimationFrame(frame);
-  };
-
-  const start = (): void => {
-    if (running || reduced) return;
-    running = true;
-    lastFrame = performance.now();
-    frameId = requestAnimationFrame(frame);
-  };
-
-  const stop = (): void => {
-    if (!running) return;
-    running = false;
-    cancelAnimationFrame(frameId);
-  };
-
-  const resizeObserver = new ResizeObserver(resize);
-  resizeObserver.observe(container);
-  resize();
-
-  if (!reduced) {
-    window.addEventListener('pointermove', (event) => {
-      cameraTarget.set(
-        (event.clientX / window.innerWidth - 0.5) * 0.28,
-        -(event.clientY / window.innerHeight - 0.5) * 0.22
-      );
+  {
+    // layer 1: distant starfield
+    const count = 12000;
+    const pos = new Float32Array(count * 3);
+    const aRand = new Float32Array(count);
+    const aT = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() * 2 - 1) * 7;
+      pos[i * 3 + 1] = (Math.random() * 2 - 1) * 4.5;
+      pos[i * 3 + 2] = -6 + Math.random() * 8;
+      aRand[i] = Math.random();
+      aT[i] = Math.random();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('aRand', new THREE.BufferAttribute(aRand, 1));
+    geo.setAttribute('aT', new THREE.BufferAttribute(aT, 1));
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: STARS_VERT,
+      fragmentShader: SOFT_DOT_FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uPixelRatio: { value: DPR },
+        uAlpha: { value: 0.9 },
+      },
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
     });
-
-    const visibilityObserver = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) start();
-      else stop();
-    });
-    visibilityObserver.observe(canvas);
+    nebulaGroup.add(new THREE.Points(geo, mat));
+    nebulaMats.push({ mat, baseAlpha: 0.9 });
   }
 
+  {
+    // layer 2: volumetric clouds
+    const PER_CLOUD = 22000;
+    for (const spec of CLOUDS) {
+      const pos = new Float32Array(PER_CLOUD * 3);
+      const col = new Float32Array(PER_CLOUD * 3);
+      const aRand = new Float32Array(PER_CLOUD);
+      const colA = new THREE.Color(spec.colA);
+      const colB = new THREE.Color(spec.colB);
+      const tmp = new THREE.Color();
+      for (let i = 0; i < PER_CLOUD; i++) {
+        let x = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+        let y = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+        let z = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+        const clump = 0.55 + 0.45 * Math.sin(x * 7.0) * Math.sin(y * 5.0 + z * 3.0);
+        x *= clump;
+        y *= clump;
+        z *= clump;
+        pos[i * 3] = spec.center[0] + x * spec.spread[0];
+        pos[i * 3 + 1] = spec.center[1] + y * spec.spread[1];
+        pos[i * 3 + 2] = spec.center[2] + z * spec.spread[2];
+        tmp.copy(colA).lerp(colB, Math.random());
+        col[i * 3] = tmp.r;
+        col[i * 3 + 1] = tmp.g;
+        col[i * 3 + 2] = tmp.b;
+        aRand[i] = Math.random();
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+      geo.setAttribute('aRand', new THREE.BufferAttribute(aRand, 1));
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: NEBULA_VERT,
+        fragmentShader: SOFT_DOT_FRAG,
+        uniforms: {
+          uTime: { value: 0 },
+          uSize: { value: 2.3 },
+          uPixelRatio: { value: DPR },
+          uAlpha: { value: 0.5 },
+        },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      nebulaGroup.add(new THREE.Points(geo, mat));
+      nebulaMats.push({ mat, baseAlpha: 0.5 });
+    }
+  }
+
+  // ——— river system (light theme) ———
+  const riverGroup = new THREE.Group();
+  riverGroup.position.y = 0.05;
+  scene.add(riverGroup);
+
+  const waterMat = new THREE.ShaderMaterial({
+    vertexShader: WATER_VERT,
+    fragmentShader: SOFT_DOT_FRAG,
+    uniforms: {
+      uTime: { value: 0 },
+      uSize: { value: 1.55 },
+      uPixelRatio: { value: DPR },
+      uDensity: { value: 0.35 },
+      uAlpha: { value: 0.7 },
+      uDeep: { value: new THREE.Color(0x123f6e) },
+      uShallow: { value: new THREE.Color(0x2f6fb4) },
+      uFoam: { value: new THREE.Color(0xbfe0f7) },
+    },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+  });
+
+  {
+    const count = 80000;
+    const pos = new Float32Array(count * 3);
+    const aRand = new Float32Array(count);
+    const aT = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() * 2 - 1) * 2.6;
+      // same meander as the caustic shader — particles ride inside the banks
+      const centerY = -0.25 + 0.28 * Math.sin(x * 0.8) + 0.14 * Math.sin(x * 1.7);
+      const halfW = 0.55 + 0.10 * Math.sin(x * 1.3 + 1.3);
+      pos[i * 3] = x;
+      pos[i * 3 + 1] = centerY + (Math.random() - 0.5) * halfW * 0.9;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 1.2;
+      aRand[i] = Math.random();
+      aT[i] = Math.random();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('aRand', new THREE.BufferAttribute(aRand, 1));
+    geo.setAttribute('aT', new THREE.BufferAttribute(aT, 1));
+    riverGroup.add(new THREE.Points(geo, waterMat));
+  }
+
+  // caustic water pass, painted behind the particles (light theme only)
+  const bgScene = new THREE.Scene();
+  const bgCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const bgUniforms = {
+    uTime: { value: 0 },
+    uRes: { value: new THREE.Vector2(1, 1) },
+    uFade: { value: 0 },
+  };
+  bgScene.add(
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      new THREE.ShaderMaterial({
+        vertexShader: QUAD_VERT,
+        fragmentShader: RIVER_FRAG,
+        uniforms: bgUniforms,
+        depthWrite: false,
+        transparent: true,
+      })
+    )
+  );
+
+  // ——— theme + scroll state ———
+  let theme: ThemeName = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  let nebulaFade = theme === 'dark' ? 1 : 0;
+  let riverFade = 1 - nebulaFade;
+  let nebulaTarget = nebulaFade;
+  let riverTarget = riverFade;
+  let scrollTarget = 0;
+  let scrollSmooth = 0;
+
+  const mouse = new THREE.Vector2(0, 0);
+
+  function applyFades(): void {
+    for (const { mat, baseAlpha } of nebulaMats) {
+      mat.uniforms.uAlpha.value = baseAlpha * nebulaFade;
+    }
+    waterMat.uniforms.uAlpha.value = 0.7 * riverFade;
+    bgUniforms.uFade.value = riverFade;
+    nebulaGroup.visible = nebulaFade > 0.004;
+    riverGroup.visible = riverFade > 0.004;
+  }
+
+  function renderScene(): void {
+    if (riverGroup.visible) {
+      renderer.autoClear = true;
+      renderer.render(bgScene, bgCam);
+      renderer.autoClear = false;
+      renderer.render(scene, camera);
+      renderer.autoClear = true;
+    } else {
+      renderer.render(scene, camera);
+    }
+  }
+
+  const bufferSize = new THREE.Vector2();
+  function resize(): void {
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.getDrawingBufferSize(bufferSize);
+    bgUniforms.uRes.value.copy(bufferSize);
+  }
+  resize();
+
+  if (reduced) {
+    // one considered frame per state change, no perpetual motion
+    const still = theme === 'dark' ? 8 : 6;
+    const renderStill = (): void => {
+      for (const { mat } of nebulaMats) mat.uniforms.uTime.value = still;
+      waterMat.uniforms.uTime.value = still;
+      waterMat.uniforms.uDensity.value = 0.58;
+      waterMat.uniforms.uSize.value = 2.0;
+      bgUniforms.uTime.value = still;
+      applyFades();
+      renderScene();
+    };
+    renderStill();
+    window.addEventListener('resize', () => {
+      resize();
+      renderStill();
+    });
+    return {
+      setTheme(next: ThemeName): void {
+        theme = next;
+        nebulaFade = nebulaTarget = next === 'dark' ? 1 : 0;
+        riverFade = riverTarget = 1 - nebulaFade;
+        renderStill();
+      },
+      setScroll(): void {
+        /* static frame — scroll does not move it */
+      },
+    };
+  }
+
+  window.addEventListener('pointermove', (event) => {
+    mouse.set(
+      event.clientX / window.innerWidth - 0.5,
+      event.clientY / window.innerHeight - 0.5
+    );
+  });
+
+  let frameId = 0;
+  let running = true;
+  let last = performance.now();
+  let time = 0;
+
+  function frame(now: number): void {
+    if (!running) return;
+    const dt = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    time += dt;
+
+    nebulaFade += (nebulaTarget - nebulaFade) * 0.09;
+    riverFade += (riverTarget - riverFade) * 0.09;
+    scrollSmooth += (scrollTarget - scrollSmooth) * 0.08;
+    applyFades();
+
+    for (const { mat } of nebulaMats) mat.uniforms.uTime.value = time;
+    waterMat.uniforms.uTime.value = time;
+    bgUniforms.uTime.value = time;
+
+    const s = scrollSmooth;
+    // the river swells as you descend: more points, bigger points
+    waterMat.uniforms.uDensity.value = 0.35 + s * 0.65;
+    waterMat.uniforms.uSize.value = 1.55 * (1 + s * 1.6);
+
+    if (theme === 'dark') {
+      camera.position.x += (mouse.x * 0.4 - camera.position.x) * 0.045;
+      camera.position.y += (-mouse.y * 0.3 - s * 0.9 - camera.position.y) * 0.06;
+      camera.lookAt(nebulaGroup.position.x, nebulaGroup.position.y - s * 0.4, 0);
+      nebulaGroup.rotation.y = s * 1.1;
+    } else {
+      camera.position.x += (mouse.x * 0.25 - camera.position.x) * 0.045;
+      camera.position.y += (-mouse.y * 0.2 - camera.position.y) * 0.05;
+      camera.lookAt(0, 0.05, 0);
+    }
+
+    renderScene();
+    frameId = requestAnimationFrame(frame);
+  }
+  frameId = requestAnimationFrame(frame);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      running = false;
+      cancelAnimationFrame(frameId);
+    } else if (!running) {
+      running = true;
+      last = performance.now();
+      frameId = requestAnimationFrame(frame);
+    }
+  });
+
+  window.addEventListener('resize', resize);
+
   return {
-    setMorph(progress: number): void {
-      if (reduced) return;
-      uniforms.uMorph.value = THREE.MathUtils.clamp(progress, 0, 1);
+    setTheme(next: ThemeName): void {
+      theme = next;
+      nebulaTarget = next === 'dark' ? 1 : 0;
+      riverTarget = 1 - nebulaTarget;
+    },
+    setScroll(progress: number): void {
+      scrollTarget = Math.min(1, Math.max(0, progress));
     },
   };
 }
