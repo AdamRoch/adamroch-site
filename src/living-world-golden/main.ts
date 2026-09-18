@@ -1,0 +1,906 @@
+import * as THREE from 'three';
+import gsap from 'gsap';
+import { watchQuality } from '../lab-quality';
+import './style.css';
+
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ————— static camera views for screenshots (?view=close|crest) ————— */
+
+const VIEWS: Record<string, { pos: [number, number, number]; look: [number, number, number] }> = {
+  close: { pos: [-3.2, 1.1, -1.2], look: [-4.4, 1.2, -3.5] },
+  crest: { pos: [0, 2.65, -16], look: [0, 1.4, -5] },
+};
+const viewParam = new URLSearchParams(window.location.search).get('view');
+const viewOverride = viewParam && VIEWS[viewParam] ? VIEWS[viewParam] : null;
+
+/* ————— seeded procedural moss texture ————— */
+
+function makeMossCanvas(seed: number, size = 2048): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  let s = seed;
+  const rand = (): number => {
+    s = (s * 16807) % 2147483647;
+    return s / 2147483647;
+  };
+
+  // detail scales with resolution so the look stays identical at any size
+  const k = size / 512;
+
+  ctx.fillStyle = '#35451f';
+  ctx.fillRect(0, 0, size, size);
+  // wider hue spread toward gold/olive for the golden-hour grade
+  const accents = ['#46551f', '#55662a', '#6b7a34', '#3a4a1c', '#87914a', '#a3a055'];
+  for (let i = 0; i < 3200 * k * k; i++) {
+    ctx.globalAlpha = 0.22 + rand() * 0.5;
+    ctx.fillStyle = accents[Math.floor(rand() * accents.length)];
+    ctx.beginPath();
+    ctx.arc(rand() * size, rand() * size, (0.8 + rand() * 6.5) * k, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // second, finer detail octave: small speckle that reads up close
+  const fine = [...accents, '#c2b06a', '#2e3d18'];
+  for (let i = 0; i < 5200 * k * k; i++) {
+    ctx.globalAlpha = 0.18 + rand() * 0.35;
+    ctx.fillStyle = fine[Math.floor(rand() * fine.length)];
+    ctx.beginPath();
+    ctx.arc(rand() * size, rand() * size, (0.25 + rand() * 1.4) * k, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 0.75;
+  for (let i = 0; i < 320 * k * k; i++) {
+    ctx.fillStyle = rand() > 0.5 ? '#93b165' : '#b3c984';
+    ctx.fillRect(rand() * size, rand() * size, 1.5 * k, 1.5 * k);
+  }
+  // sparse near-white dew pixels
+  for (let i = 0; i < 240 * k * k; i++) {
+    ctx.globalAlpha = 0.35 + rand() * 0.45;
+    ctx.fillStyle = '#f4f1de';
+    ctx.fillRect(rand() * size, rand() * size, 1.0 * k, 1.0 * k);
+  }
+  ctx.globalAlpha = 1;
+  return canvas;
+}
+
+function makeGlowSprite(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.45)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+  }
+  return new THREE.CanvasTexture(canvas);
+}
+
+// light-shaft card: bright at the top, fading out at the bottom and the sides
+function makeShaftTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, 'rgba(255, 232, 175, 0.85)');
+    grad.addColorStop(0.45, 'rgba(255, 214, 145, 0.32)');
+    grad.addColorStop(1, 'rgba(255, 200, 120, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 256);
+    const side = ctx.createLinearGradient(0, 0, 128, 0);
+    side.addColorStop(0, 'rgba(0,0,0,1)');
+    side.addColorStop(0.28, 'rgba(0,0,0,0)');
+    side.addColorStop(0.72, 'rgba(0,0,0,0)');
+    side.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = side;
+    ctx.fillRect(0, 0, 128, 256);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/* ————— scene ————— */
+
+const BG = 0x685a3e; // amber-olive haze
+const canvas = document.getElementById('lw-gl') as HTMLCanvasElement;
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(BG);
+scene.fog = new THREE.FogExp2(BG, 0.032);
+
+const camera = new THREE.PerspectiveCamera(
+  42,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  100
+);
+camera.position.set(0, 1.5, 9.5);
+
+const hemi = new THREE.HemisphereLight(0xc9bd97, 0x131a1e, 1.5);
+scene.add(hemi);
+
+// golden-hour key light: low, warm, raking in from the right
+const sunLight = new THREE.DirectionalLight(0xffbe6a, 1.8);
+sunLight.position.set(9, 5.5, 6);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(4096, 4096);
+sunLight.shadow.camera.left = -16;
+sunLight.shadow.camera.right = 16;
+sunLight.shadow.camera.top = 16;
+sunLight.shadow.camera.bottom = -16;
+sunLight.shadow.camera.near = 1;
+sunLight.shadow.camera.far = 45;
+sunLight.shadow.bias = -0.0025;
+scene.add(sunLight);
+scene.add(sunLight.target);
+
+const moonLight = new THREE.DirectionalLight(0xa8c0e8, 0);
+moonLight.position.set(0, 10, -4);
+moonLight.castShadow = true;
+moonLight.shadow.mapSize.set(2048, 2048);
+moonLight.shadow.camera.left = -16;
+moonLight.shadow.camera.right = 16;
+moonLight.shadow.camera.top = 16;
+moonLight.shadow.camera.bottom = -16;
+moonLight.shadow.camera.near = 1;
+moonLight.shadow.camera.far = 45;
+moonLight.shadow.bias = -0.0025;
+scene.add(moonLight);
+scene.add(moonLight.target);
+
+// warm rim from behind-left so the arch silhouettes separate from the haze
+const rim = new THREE.DirectionalLight(0xffb56a, 0.7);
+rim.position.set(-8, 5, -12);
+scene.add(rim);
+scene.add(rim.target);
+
+const fill = new THREE.PointLight(0xbfa060, 55, 18);
+fill.position.set(-4, 3, 2);
+scene.add(fill);
+
+const mossTex = new THREE.CanvasTexture(makeMossCanvas(1234));
+mossTex.wrapS = mossTex.wrapT = THREE.RepeatWrapping;
+mossTex.repeat.set(5, 4);
+mossTex.colorSpace = THREE.SRGBColorSpace;
+mossTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+const groundTex = mossTex.clone();
+groundTex.repeat.set(14, 14);
+groundTex.needsUpdate = true;
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x665f42,
+  map: groundTex,
+  bumpMap: groundTex,
+  bumpScale: 0.55,
+  roughness: 1,
+});
+const ground = new THREE.Mesh(new THREE.CircleGeometry(45, 48), groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.02;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// golden sky: dusty olive zenith falling into a warm band at the horizon
+function makeSkyTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 2;
+  c.height = 256;
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, '#5f6147');
+    grad.addColorStop(0.18, '#737250');
+    grad.addColorStop(0.35, '#8f845a');
+    grad.addColorStop(0.45, '#c2a05e');
+    grad.addColorStop(0.52, '#eeb264');
+    grad.addColorStop(0.6, '#c9a26a');
+    grad.addColorStop(0.75, '#685a3e');
+    grad.addColorStop(1, '#4a4436');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 2, 256);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+// sky dome: inverted sphere so no plane edge can ever show mid-ride
+const skyMat = new THREE.MeshBasicMaterial({
+  map: makeSkyTexture(),
+  fog: false,
+  side: THREE.BackSide,
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(65, 32, 16), skyMat);
+sky.position.set(0, 0, -8);
+scene.add(sky);
+
+/* ————— moss arches ————— */
+
+function jitter(geo: THREE.BufferGeometry, amt: number, seed: number): void {
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const n =
+      Math.sin(x * 3.1 + seed) * Math.cos(y * 2.7 + seed * 1.3) * Math.sin(z * 3.7 + seed * 0.7);
+    const k = 1 + n * amt;
+    pos.setXYZ(i, x * k, y * k, z * k);
+  }
+  geo.computeVertexNormals();
+}
+
+interface ArchDef {
+  radius: number;
+  tube: number;
+  x: number;
+  z: number;
+  rotY: number;
+  rotZ: number;
+}
+
+const ARCHES: ArchDef[] = [
+  { radius: 3.4, tube: 0.42, x: -4.4, z: -3.5, rotY: 0.5, rotZ: 0.07 },
+  { radius: 2.6, tube: 0.34, x: 4.3, z: -4.5, rotY: -0.7, rotZ: -0.05 },
+  { radius: 1.7, tube: 0.26, x: 0.6, z: -7.5, rotY: 0.2, rotZ: 0 },
+  { radius: 1.2, tube: 0.2, x: -2.2, z: -9.5, rotY: 1.1, rotZ: -0.06 },
+  { radius: 2.1, tube: 0.3, x: 6.5, z: -9, rotY: 0.9, rotZ: 0 },
+  { radius: 1.4, tube: 0.22, x: -7.2, z: -7, rotY: -0.4, rotZ: 0 },
+  { radius: 0.9, tube: 0.16, x: 2.6, z: -11.5, rotY: 0.4, rotZ: 0 },
+];
+
+const archGroups: THREE.Group[] = [];
+const archMats: THREE.MeshStandardMaterial[] = [];
+
+ARCHES.forEach((def, i) => {
+  const geo = new THREE.TorusGeometry(def.radius, def.tube, 40, 180, Math.PI);
+  jitter(geo, 0.1, i * 7.13 + 1.7);
+  const mat = new THREE.MeshStandardMaterial({
+    map: mossTex,
+    bumpMap: mossTex,
+    bumpScale: 0.9,
+    roughness: 0.96,
+    metalness: 0,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  const group = new THREE.Group();
+  group.add(mesh);
+  group.position.set(def.x, 0, def.z);
+  group.rotation.y = def.rotY;
+  group.rotation.z = def.rotZ;
+  group.userData.base = reduced ? 1 : 0.0001;
+  group.scale.setScalar(group.userData.base as number);
+  scene.add(group);
+  archGroups.push(group);
+  archMats.push(mat);
+});
+
+// branch stubs breaking up the silhouette of the two foreground arches
+ARCHES.slice(0, 2).forEach((def, k) => {
+  const group = archGroups[k];
+  for (let i = 0; i < 3; i++) {
+    const u = 0.5 + Math.random() * (Math.PI - 1);
+    const stub = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.1, 0.55, 12), archMats[k]);
+    stub.castShadow = true;
+    const radial = def.radius + def.tube * 0.8;
+    stub.position.set(Math.cos(u) * radial, Math.sin(u) * radial, (Math.random() - 0.5) * 0.2);
+    stub.rotation.z = u - Math.PI / 2 + (Math.random() - 0.5) * 0.9;
+    stub.rotation.x = (Math.random() - 0.5) * 0.6;
+    group.add(stub);
+  }
+});
+
+// surface fuzz on the two foreground arches
+const glowSprite = makeGlowSprite();
+ARCHES.slice(0, 2).forEach((def) => {
+  const N = 900;
+  const positions = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const u = Math.random() * Math.PI;
+    const v = Math.random() * Math.PI * 2;
+    const r = def.radius + (Math.random() - 0.5) * 0.1;
+    const t = def.tube + 0.02 + Math.random() * 0.1;
+    positions[i * 3] = (r + t * Math.cos(v)) * Math.cos(u);
+    positions[i * 3 + 1] = (r + t * Math.cos(v)) * Math.sin(u);
+    positions[i * 3 + 2] = t * Math.sin(v);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const pts = new THREE.Points(
+    geo,
+    new THREE.PointsMaterial({
+      size: 0.055,
+      map: glowSprite,
+      transparent: true,
+      opacity: 0.55,
+      color: 0xb8b06a,
+      depthWrite: false,
+    })
+  );
+  pts.position.set(def.x, 0, def.z);
+  pts.rotation.y = def.rotY;
+  scene.add(pts);
+});
+
+/* ————— dew glints on the foreground arches ————— */
+
+const dewMats: { mat: THREE.PointsMaterial; phase: number }[] = [];
+ARCHES.slice(0, 2).forEach((def, k) => {
+  const N = 150;
+  const positions = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    // biased to the sunlit upper side of the tube
+    const u = 0.15 + Math.random() * (Math.PI - 0.3);
+    const v = (Math.random() - 0.5) * Math.PI;
+    const r = def.radius;
+    const t = def.tube + 0.03 + Math.random() * 0.05;
+    positions[i * 3] = (r + t * Math.cos(v)) * Math.cos(u);
+    positions[i * 3 + 1] = (r + t * Math.cos(v)) * Math.sin(u);
+    positions[i * 3 + 2] = t * Math.sin(v);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({
+    size: 0.06,
+    map: glowSprite,
+    transparent: true,
+    opacity: 0.7,
+    color: 0xfff2d8,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const pts = new THREE.Points(geo, mat);
+  archGroups[k].add(pts); // child of the arch so it breathes/grows with it
+  dewMats.push({ mat, phase: k * 2.1 + 0.7 });
+});
+
+/* ————— light shafts under the two big spans ————— */
+
+const shaftTex = makeShaftTexture();
+// steepen the sun direction a touch so the shafts read as haze, not streaks
+const sunDir = sunLight.position
+  .clone()
+  .normalize()
+  .lerp(new THREE.Vector3(0, 1, 0), 0.4)
+  .normalize();
+const shaftUp = new THREE.Vector3(0, 1, 0);
+
+function addShaft(x: number, y: number, z: number, w: number, h: number, opacity: number): void {
+  const mat = new THREE.MeshBasicMaterial({
+    map: shaftTex,
+    transparent: true,
+    opacity,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    fog: false,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  mesh.position.set(x, y, z);
+  mesh.quaternion.setFromUnitVectors(shaftUp, sunDir);
+  mesh.renderOrder = 2;
+  scene.add(mesh);
+}
+
+addShaft(-4.4, 1.3, -3.4, 2.6, 3.0, 0.1);
+addShaft(4.2, 1.1, -4.3, 2.0, 2.5, 0.085);
+addShaft(0.6, 0.75, -7.4, 1.4, 1.6, 0.06);
+
+/* ————— dust motes — falling spores ————— */
+
+const MOTES = 320;
+const motePositions = new Float32Array(MOTES * 3);
+for (let i = 0; i < MOTES; i++) {
+  motePositions[i * 3] = (Math.random() - 0.5) * 24;
+  motePositions[i * 3 + 1] = Math.random() * 7;
+  motePositions[i * 3 + 2] = (Math.random() - 0.5) * 20 - 3;
+}
+const moteGeo = new THREE.BufferGeometry();
+moteGeo.setAttribute('position', new THREE.BufferAttribute(motePositions, 3));
+scene.add(
+  new THREE.Points(
+    moteGeo,
+    new THREE.PointsMaterial({
+      size: 0.06,
+      map: glowSprite,
+      transparent: true,
+      opacity: 0.5,
+      color: 0xf0e0b0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+  )
+);
+
+/* ————— butterfly ————— */
+
+const butterfly = new THREE.Group();
+const wingMat = new THREE.MeshBasicMaterial({
+  color: 0xd8e26a,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.9,
+});
+const wingGeoL = new THREE.PlaneGeometry(0.12, 0.09);
+wingGeoL.translate(-0.06, 0, 0);
+const wingGeoR = new THREE.PlaneGeometry(0.12, 0.09);
+wingGeoR.translate(0.06, 0, 0);
+const wingL = new THREE.Mesh(wingGeoL, wingMat);
+const wingR = new THREE.Mesh(wingGeoR, wingMat);
+butterfly.add(wingL, wingR);
+scene.add(butterfly);
+
+/* ————— sun & moon sprites ————— */
+
+const sunMat = new THREE.SpriteMaterial({
+  map: glowSprite,
+  color: 0xfff6d8,
+  transparent: true,
+  opacity: 0,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+const sun = new THREE.Sprite(sunMat);
+sun.scale.set(5, 5, 1);
+scene.add(sun);
+
+const moonMat = new THREE.SpriteMaterial({
+  map: glowSprite,
+  color: 0xdfe8f5,
+  transparent: true,
+  opacity: 0,
+  depthWrite: false,
+});
+const moon = new THREE.Sprite(moonMat);
+moon.scale.set(2.4, 2.4, 1);
+scene.add(moon);
+
+/* ————— day-night cycle ————— */
+
+const BASE_FOG = new THREE.Color(BG);
+const WARM_FOG = new THREE.Color(0x7a5c38);
+const NIGHT_FOG = new THREE.Color(0x10161c);
+const WHITE = new THREE.Color(0xffffff);
+const WARM_SKY = new THREE.Color(0xffd9a0);
+const NIGHT_SKY = new THREE.Color(0x232c3e);
+const SUN_CORE = new THREE.Color(0xfff6d8);
+const SUN_SET = new THREE.Color(0xff9a3c);
+const SUN_LIGHT = new THREE.Color(0xfff2d0);
+const SUNSET_LIGHT = new THREE.Color(0xff8a3d);
+const BASE_LIGHT_COLOR = new THREE.Color(0xffbe6a);
+const BASE_LIGHT_POS = new THREE.Vector3(9, 5.5, 6);
+const MOON_END_POS = new THREE.Vector3(14, 1.2, -6);
+
+const cycleState = { sunT: 0, moonT: 0, nightMix: 0, restoreT: 0, idle: true };
+let cycling = false;
+
+function applyCycleState(): void {
+  if (cycleState.idle) {
+    sunLight.position.copy(BASE_LIGHT_POS);
+    sunLight.intensity = 1.8;
+    sunLight.color.copy(BASE_LIGHT_COLOR);
+    moonLight.intensity = 0;
+    sunMat.opacity = 0;
+    moonMat.opacity = 0;
+    skyMat.color.copy(WHITE);
+    (scene.fog as THREE.FogExp2).color.copy(BASE_FOG);
+    (scene.background as THREE.Color).copy(BASE_FOG);
+    hemi.intensity = 1.5;
+    return;
+  }
+
+  const azS = Math.PI * (1 - cycleState.sunT);
+  sun.position.set(Math.cos(azS) * 26, Math.sin(azS) * 14, -20);
+  const day = Math.sin(Math.PI * cycleState.sunT);
+  const warm = 1 - day;
+  const dayness = 1 - cycleState.nightMix;
+
+  const azM = Math.PI * (1 - cycleState.moonT);
+  moon.position.set(Math.cos(azM) * 26, Math.sin(azM) * 14, -20);
+  const moonUp = Math.sin(Math.PI * cycleState.moonT);
+
+  sunMat.opacity = Math.min(1, day * 3) * dayness;
+  sunMat.color.copy(SUN_CORE).lerp(SUN_SET, warm * 0.8);
+  moonMat.opacity = cycleState.nightMix * Math.min(1, moonUp * 3);
+
+  // key light: chases the sun, parks during night, eases home on restore
+  if (cycleState.restoreT > 0) {
+    sunLight.position.lerpVectors(MOON_END_POS, BASE_LIGHT_POS, cycleState.restoreT);
+    sunLight.intensity = 0.3 + cycleState.restoreT * 1.4;
+    sunLight.color.copy(SUNSET_LIGHT).lerp(BASE_LIGHT_COLOR, cycleState.restoreT);
+  } else if (cycleState.moonT > 0 || cycleState.nightMix > 0.5) {
+    sunLight.position.set(0, -6, 2);
+    sunLight.intensity = 0;
+  } else {
+    sunLight.position.set(Math.cos(azS) * 14, Math.max(Math.sin(azS) * 10, 1.2), -6);
+    sunLight.intensity = (0.5 + day * 1.6) * dayness;
+    sunLight.color.copy(SUN_LIGHT).lerp(SUNSET_LIGHT, warm * 0.85);
+  }
+
+  moonLight.position.set(Math.cos(azM) * 14, Math.max(Math.sin(azM) * 10, 1.2), -6);
+  moonLight.intensity =
+    0.45 * cycleState.nightMix * (0.35 + 0.65 * moonUp) * (1 - cycleState.restoreT);
+
+  // atmosphere
+  skyMat.color
+    .copy(WHITE)
+    .lerp(WARM_SKY, warm * 0.4 * dayness)
+    .lerp(NIGHT_SKY, cycleState.nightMix);
+  const fogCol = new THREE.Color()
+    .copy(BASE_FOG)
+    .lerp(WARM_FOG, warm * 0.3 * dayness)
+    .lerp(NIGHT_FOG, cycleState.nightMix);
+  (scene.fog as THREE.FogExp2).color.copy(fogCol);
+  (scene.background as THREE.Color).copy(fogCol);
+  hemi.intensity = 1.5 * (1 - cycleState.nightMix * 0.72);
+}
+
+const cycleTimeline = gsap.timeline({
+  paused: true,
+  onUpdate: applyCycleState,
+  onComplete: () => {
+    cycleState.idle = true;
+    cycling = false;
+    applyCycleState();
+    const btn = document.getElementById('lw-cycle') as HTMLButtonElement | null;
+    if (btn) btn.disabled = false;
+  },
+});
+cycleTimeline
+  .to(cycleState, { sunT: 1, duration: 9, ease: 'none' }, 0)
+  .to(cycleState, { nightMix: 1, duration: 2.2, ease: 'power1.inOut' }, 8.2)
+  .to(cycleState, { moonT: 1, duration: 7.5, ease: 'none' }, 10.2)
+  .to(cycleState, { restoreT: 1, nightMix: 0, duration: 3.5, ease: 'power1.inOut' }, 17.7);
+
+const cycleBtn = document.getElementById('lw-cycle') as HTMLButtonElement | null;
+if (reduced) {
+  if (cycleBtn) cycleBtn.style.display = 'none';
+} else {
+  cycleBtn?.addEventListener('click', () => {
+    if (cycling) return;
+    cycling = true;
+    cycleBtn.disabled = true;
+    lastScan = t; // hold off the periodic wireframe pulse during the cycle
+    cycleState.idle = false;
+    cycleState.sunT = 0;
+    cycleState.moonT = 0;
+    cycleState.nightMix = 0;
+    cycleState.restoreT = 0;
+    cycleTimeline.restart();
+  });
+}
+
+/* ————— wireframe scan: periodic pulse ————— */
+
+function runScan(): void {
+  archMats.forEach((mat, i) => {
+    gsap.delayedCall(i * 0.07, () => {
+      mat.wireframe = true;
+      gsap.delayedCall(0.5, () => {
+        mat.wireframe = false;
+      });
+    });
+  });
+  groundMat.wireframe = true;
+  gsap.delayedCall(0.55, () => {
+    groundMat.wireframe = false;
+  });
+}
+
+/* ————— explore ride: a camera flight through the archways and home ————— */
+
+// The path is anchored to the arch openings: approach/anchor/exit points
+// are derived from each threaded arch's own transform, so the pass stays
+// perpendicular to the opening. Between the two passes the camera rides a
+// circular arc around the back field whose tangents match both arch
+// corridors exactly — no kinks, no heading reversals.
+
+function openingNormal(def: ArchDef): THREE.Vector3 {
+  return new THREE.Vector3(Math.sin(def.rotY), 0, Math.cos(def.rotY));
+}
+
+function openingPoint(def: ArchDef, along: number, height: number): THREE.Vector3 {
+  const n = openingNormal(def);
+  return new THREE.Vector3(def.x + n.x * along, height, def.z + n.z * along);
+}
+
+const wayOut = ARCHES[0]; // big left arch — exit through it
+const wayHome = ARCHES[1]; // right arch — return through it
+
+// back-field arc: circle centered (-0.14, -9.47) r 6.6, tangent-matched to
+// the wayOut exit heading and the wayHome approach corridor; sampled every
+// 30° of heading. The dip to y 1.2 at the rightmost point ducks under the
+// small back-right arch's span (clearance-checked in .tmp/verify-ride.mjs)
+const rideCurve = new THREE.CatmullRomCurve3(
+  [
+    new THREE.Vector3(0, 1.5, 9.5), // idle framing
+    new THREE.Vector3(-1.3, 1.45, 4.6), // lead-in
+    openingPoint(wayOut, 3.2, 1.42), // approach
+    openingPoint(wayOut, 0, 1.45), // through the opening
+    openingPoint(wayOut, -3.2, 1.62), // exit, heading matched to the arc
+    new THREE.Vector3(-6.2, 1.95, -10.2),
+    new THREE.Vector3(-5.85, 2.15, -12.77),
+    new THREE.Vector3(-3.44, 2.5, -15.19),
+    new THREE.Vector3(-0.14, 2.65, -16.07), // crest, whole cluster in view
+    new THREE.Vector3(3.16, 2.5, -15.19),
+    new THREE.Vector3(5.58, 1.9, -12.77),
+    new THREE.Vector3(6.7, 0.95, -9.5), // duck under the back-right arch
+    new THREE.Vector3(5.58, 1.35, -6.17),
+    openingPoint(wayHome, -0.95, 1.3), // tangent into the home corridor
+    openingPoint(wayHome, 0, 1.3), // through the opening
+    openingPoint(wayHome, 2.5, 1.38), // exit
+    new THREE.Vector3(1.2, 1.45, 3.4), // lead home
+    new THREE.Vector3(0, 1.5, 9.5), // idle framing
+  ],
+  false,
+  'centripetal'
+);
+
+const LOOK_HOME = new THREE.Vector3(0, 1.3, -2);
+const ARCH_FOCUS = new THREE.Vector3(0, 1.8, -6.8);
+const rideLook = new THREE.Vector3();
+const rideState = { u: 0 };
+let riding = false;
+
+const exploreBtn = document.getElementById('lw-explore') as HTMLButtonElement | null;
+if (reduced) {
+  if (exploreBtn) exploreBtn.style.display = 'none';
+} else {
+  exploreBtn?.addEventListener('click', () => {
+    if (riding) return;
+    riding = true;
+    exploreBtn.disabled = true;
+    lastScan = t; // no wireframe pulse mid-flight
+    rideState.u = 0;
+    gsap
+      .timeline({
+        onComplete: () => {
+          riding = false;
+          exploreBtn.disabled = false;
+          lastScan = t;
+          // hand control back to the parallax loop without a pop
+          camX = camera.position.x;
+          camY = camera.position.y;
+          camera.fov = 42;
+          camera.updateProjectionMatrix();
+        },
+      })
+      .to(rideState, { u: 1, duration: 18, ease: 'power1.inOut' }, 0)
+      .to(
+        camera,
+        {
+          fov: 38,
+          duration: 12,
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: 1,
+          onUpdate: () => camera.updateProjectionMatrix(),
+        },
+        0
+      );
+  });
+}
+
+let lastScan = 0;
+
+/* ————— design note toggle ————— */
+
+const noteBtn = document.getElementById('lw-note-btn') as HTMLButtonElement | null;
+const notePanel = document.getElementById('lw-note-panel') as HTMLElement | null;
+
+function setNoteOpen(open: boolean): void {
+  if (!noteBtn || !notePanel) return;
+  noteBtn.setAttribute('aria-expanded', String(open));
+  notePanel.hidden = !open;
+}
+
+noteBtn?.addEventListener('click', () => {
+  if (!noteBtn || !notePanel) return;
+  setNoteOpen(noteBtn.getAttribute('aria-expanded') !== 'true');
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && notePanel && !notePanel.hidden) {
+    setNoteOpen(false);
+    noteBtn?.focus();
+  }
+});
+
+/* ————— interaction state ————— */
+
+let drift = !reduced;
+let mouseX = 0;
+let mouseY = 0;
+let camX = 0;
+let camY = 1.5;
+let ringX = -100;
+let ringY = -100;
+let ringTX = -100;
+let ringTY = -100;
+
+const ring = document.getElementById('lw-cursor');
+const finePointer = window.matchMedia('(pointer: fine)').matches;
+if (ring && finePointer && !reduced) ring.hidden = false;
+
+window.addEventListener('pointermove', (e) => {
+  mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+  mouseY = 1 - (e.clientY / window.innerHeight) * 2;
+  ringTX = e.clientX;
+  ringTY = e.clientY;
+});
+
+/* ————— intro ————— */
+
+if (!reduced) {
+  archGroups.forEach((group, i) => {
+    gsap.to(group.userData, {
+      base: 1,
+      duration: 1.7,
+      delay: 0.3 + i * 0.12,
+      ease: 'elastic.out(1, 0.65)',
+    });
+  });
+  gsap.from('.lw-nav', {
+    opacity: 0,
+    y: -36,
+    duration: 1.0,
+    ease: 'power3.out',
+    delay: 0.35,
+    clearProps: 'opacity,transform',
+  });
+  gsap.from('[data-lw-ui]:not(.lw-nav)', {
+    opacity: 0,
+    y: 26,
+    duration: 1.1,
+    stagger: 0.09,
+    ease: 'power3.out',
+    delay: 0.55,
+    clearProps: 'opacity,transform',
+  });
+}
+
+/* ————— adaptive quality ————— */
+
+let qualityTier = 0;
+function stepQualityDown(): void {
+  qualityTier++;
+  if (qualityTier === 1) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    return;
+  }
+  // a smaller shadow fbo only takes effect once the old map is disposed
+  for (const light of [sunLight, moonLight]) {
+    light.shadow.map?.dispose();
+    light.shadow.map = null;
+    light.shadow.mapSize.multiplyScalar(0.5);
+  }
+}
+
+/* ————— dynamic bits shared by the loop and the static render ————— */
+
+function tick(time: number): void {
+  // dew twinkle: same sine, offset phases per arch
+  dewMats.forEach((d) => {
+    d.mat.opacity = 0.5 + 0.4 * (0.5 + 0.5 * Math.sin(time * 1.6 + d.phase));
+  });
+}
+
+/* ————— loop ————— */
+
+const timer = new THREE.Timer();
+let t = 0;
+
+function frame(): void {
+  timer.update();
+  const dt = Math.min(timer.getDelta(), 0.05);
+  t += dt;
+
+  tick(t);
+
+  if (!cycling && !riding && t - lastScan > 15) {
+    lastScan = t;
+    runScan();
+  }
+
+  // erratic flutter: speed-modulated multi-sine path
+  const bt = t * (1 + 0.4 * Math.sin(t * 0.21));
+  const flap = Math.sin(t * 16) * 0.85;
+  wingL.rotation.y = flap;
+  wingR.rotation.y = -flap;
+  butterfly.position.set(
+    Math.sin(bt * 0.9) * 3.6 + Math.sin(bt * 2.3) * 0.9,
+    1.5 + Math.sin(bt * 1.7) * 0.5 + Math.sin(bt * 3.1) * 0.18,
+    -2.5 + Math.cos(bt * 0.6) * 2.6
+  );
+  butterfly.quaternion.copy(camera.quaternion);
+
+  const motePos = moteGeo.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < MOTES; i++) {
+    let y = motePos.getY(i) - dt * 0.14;
+    if (y < 0) y = 7.5;
+    motePos.setY(i, y);
+  }
+  motePos.needsUpdate = true;
+
+  archGroups.forEach((group, i) => {
+    const base = group.userData.base as number;
+    group.scale.setScalar(base * (1 + Math.sin(t * 0.45 + i * 1.3) * 0.008));
+  });
+
+  if (riding) {
+    const u = rideState.u;
+    camera.position.copy(rideCurve.getPointAt(u));
+    // lead the camera by a long lookahead so heading changes stay gradual
+    rideLook.copy(rideCurve.getPointAt(Math.min(u + 0.06, 1)));
+    // mid-flight, pull the gaze toward the arch cluster so the subject stays
+    // framed instead of staring down the tangent into empty back field;
+    // hold the pull until the final lead home so the arches recede in frame
+    const focusWindow =
+      THREE.MathUtils.smoothstep(u, 0.1, 0.3) * (1 - THREE.MathUtils.smoothstep(u, 0.8, 0.97));
+    rideLook.lerp(ARCH_FOCUS, focusWindow * 0.72);
+    // ease the gaze from/to the idle framing at both ends of the flight
+    const homeBlend = Math.max(
+      1 - THREE.MathUtils.smoothstep(u, 0, 0.08),
+      THREE.MathUtils.smoothstep(u, 0.82, 0.97)
+    );
+    camera.lookAt(rideLook.lerp(LOOK_HOME, homeBlend));
+  } else if (viewOverride) {
+    camera.position.set(...viewOverride.pos);
+    camera.lookAt(...viewOverride.look);
+  } else {
+    const driftX = drift ? Math.sin(t * 0.11) * 0.8 : 0;
+    const driftY = drift ? Math.sin(t * 0.07) * 0.3 : 0;
+    camX += (mouseX * 1.4 + driftX - camX) * 0.04;
+    camY += (1.5 + mouseY * 0.45 + driftY - camY) * 0.04;
+    camera.position.set(camX, camY, 9.5);
+    camera.lookAt(0, 1.3, -2);
+  }
+
+  if (ring && !ring.hidden) {
+    ringX += (ringTX - ringX) * 0.18;
+    ringY += (ringTY - ringY) * 0.18;
+    ring.style.transform = `translate(${ringX}px, ${ringY}px)`;
+  }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (reduced) renderer.render(scene, camera);
+});
+
+if (reduced) {
+  tick(3.1); // settle the twinkle mid-range for the still
+  if (viewOverride) {
+    camera.position.set(...viewOverride.pos);
+    camera.lookAt(...viewOverride.look);
+  } else {
+    camera.lookAt(0, 1.3, -2);
+  }
+  renderer.render(scene, camera);
+} else {
+  frame();
+  watchQuality(stepQualityDown);
+}
