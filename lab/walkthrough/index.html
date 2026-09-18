@@ -2,61 +2,64 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Walkthrough — a first-person prototype scene in WebGL. Foundation build by Adam Roch." />
-    <meta name="theme-color" content="#c0b8a8" />
-    <title>Walkthrough — The Lab — Adam Roch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Walkthrough: a first-person dusk beach in WebGL. One height function drives both the physics and the sand, and a fallen colossus waits by the water. Lab 04 by Adam Roch." />
+    <meta name="theme-color" content="#6f6873" />
+    <title>Walkthrough · Lab 04 · Adam Roch</title>
+    <script>document.documentElement.classList.add('js', 'lc-loading');</script>
+    <style>html,body{margin:0;height:100%;background:#6f6873;overflow:hidden}</style>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/JetBrainsMono-Variable.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/InstrumentSerif-Regular.woff2" />
+    <link rel="stylesheet" href="/src/fonts.css" />
   </head>
   <body>
-    <canvas id="wt-gl"></canvas>
+    <main id="wt-main" aria-label="Walkthrough: a first-person dusk beach">
+      <canvas id="wt-gl" role="img" aria-label="A dusk beach. A marble colossus lies on its cheek in the sand, three standing stones between it and the water."></canvas>
 
-    <a class="hud hud-tl" href="/" aria-label="Back to adamroch.com"><b>ADAM</b> — THE LAB</a>
-    <div class="hud hud-tr">[ WALKTHROUGH — <span class="accent">FOUNDATION</span> ]</div>
-    <button class="hud hud-note" id="wt-note-btn" type="button" aria-expanded="false" aria-controls="wt-note-panel">[ DESIGN NOTE ]</button>
-    <div class="hud hud-bl"><span id="wt-fps">FPS —</span> · <span id="wt-quality">QUALITY 0</span></div>
-    <div class="hud hud-br">THE LAB AS A <span class="accent">PLACE</span>, NOT A PAGE</div>
+      <button class="wt-sound" id="wt-sound" type="button" aria-pressed="true">[ SOUND <span id="wt-sound-state">ON</span> ]</button>
+      <p class="wt-hint" id="wt-hint" aria-live="polite">the markers answer to stillness</p>
 
-    <button class="hud hud-sound" id="wt-sound" type="button" aria-label="Toggle sound">[ SOUND <span id="wt-sound-state">ON</span> ]</button>
-    <p class="wt-hint" id="wt-hint">the markers answer to stillness</p>
-
-    <aside class="wt-note-panel" id="wt-note-panel" aria-label="Design note — how this page is built" hidden>
-      <h2>How it's built</h2>
-      <p>
-        The scene is a first-person walk on a dusk beach. One height function drives both physics
-        and rendering — the walker and the ground mesh sample the same math, so feet and sand never
-        disagree. The colossus is a CC0 photogrammetry scan (Poly Haven, marble_bust_01), normalized
-        by bounding box to monumental scale, tipped onto its cheek, and seated a third into the
-        sand. It has pressed a shallow Gaussian bowl into the dunes around itself.
-      </p>
-      <pre><code>let h = WATER_Y + inland * 0.045; // the beach falls toward the water
+      <aside class="wt-note-panel" id="wt-note-panel" aria-label="Design note: how this page is built" hidden>
+        <h2>How it's built</h2>
+        <p>
+          The scene is a first-person walk on a dusk beach. One height function drives both physics
+          and rendering: the walker and the ground mesh sample the same math, so feet and sand never
+          disagree. The colossus is a CC0 photogrammetry scan (Poly Haven, marble_bust_01), normalized
+          by bounding box to monumental scale, tipped onto its cheek, and seated a third into the
+          sand. It has pressed a shallow Gaussian bowl into the dunes around itself.
+        </p>
+        <pre><code>let h = WATER_Y + inland * 0.045; // the beach falls toward the water
 h = Math.min(h, 2.1); // a dune crest caps the climb inland
 h -= Math.exp(-(hx * hx + hz * hz) / 96) * 0.34; // the colossus's bowl</code></pre>
-      <p>
-        The sea is a standard material with a scrolling normal map baked from layered sine swell at
-        boot — this sea is asleep. The wet-sand band is an onBeforeCompile patch that darkens and
-        glosses the ground near the waterline. Collision is radial push-out against cylinder
-        colliders. Audio is pure WebAudio: filtered-noise surf, a drone that gains near the head, a
-        horn when every resonance stone is lit — and a warning sign that climbs out of the sand
-        once they all are. The easter egg is at the waterline anyway: hold the sun's gaze, and
-        the moon falls.
-      </p>
-    </aside>
+        <p>
+          The sea is a standard material with a scrolling normal map baked from layered sine swell at
+          boot. This sea is asleep. The wet-sand band is an onBeforeCompile patch that darkens and
+          glosses the ground near the waterline. Collision is radial push-out against cylinder
+          colliders. The frame renders in linear HDR with a half-res bloom, then one finishing pass
+          adds grain, dither and a soft vignette. Audio is pure WebAudio: filtered-noise surf, a
+          drone that gains near the head, a horn when every resonance stone is lit, and a warning
+          sign that climbs out of the sand once they all are. The easter egg is at the waterline
+          anyway: hold the sun's gaze, and the moon falls.
+        </p>
+      </aside>
 
-    <div id="wt-white" aria-hidden="true">
-      <p id="wt-white-line">the horizon was never a wall.</p>
-    </div>
+      <div id="wt-white" aria-hidden="true">
+        <p id="wt-white-line">the horizon was never a wall.</p>
+      </div>
 
-    <div id="wt-crosshair" aria-hidden="true"></div>
+      <div id="wt-crosshair" aria-hidden="true"></div>
 
-    <div class="wt-overlay" id="wt-overlay">
-      <section class="wt-card" aria-label="Enter the walkthrough">
-        <p class="wt-kicker">First-Person Prototype</p>
-        <h1>The Walkthrough</h1>
-        <p class="wt-help" id="wt-overlay-help">WASD to walk &middot; mouse to look &middot; Shift to sprint.</p>
-        <button class="wt-enter" id="wt-enter" type="button">Step in</button>
-        <a class="wt-leave" href="/">or return to the lab</a>
-      </section>
-    </div>
+      <div class="wt-overlay" id="wt-overlay">
+        <section class="wt-card" aria-labelledby="wt-title">
+          <p class="wt-kicker">The lab as a place, not a page</p>
+          <h1 id="wt-title">The Walkthrough</h1>
+          <p class="wt-help" id="wt-overlay-help">WASD to walk &middot; mouse or arrows to look &middot; Shift to sprint.</p>
+          <button class="wt-enter" id="wt-enter" type="button" aria-disabled="true">Step in</button>
+          <a class="wt-leave" href="/">or go back home</a>
+        </section>
+      </div>
+    </main>
 
     <script type="module" src="/src/walkthrough/main.ts"></script>
   </body>

@@ -1,0 +1,446 @@
+/* ————— shared lab chrome ————— */
+/* Skins are per page: each lab's style.css sets these tokens on :root. The defaults
+   sit in :where(:root) so any page-level :root rule wins regardless of load order. */
+
+:where(:root) {
+  --lab-bg: #0b0b0d;
+  --lab-ink: #eae6dc;
+  --lab-mute: rgba(234, 230, 220, 0.62);
+  --lab-accent: #ff4d00;
+  --lab-hairline: rgba(234, 230, 220, 0.18);
+  --lab-font-ui: 'JetBrains Mono', 'JetBrains Mono Fallback', ui-monospace, Menlo, monospace;
+  --lab-font-display: 'Instrument Serif', 'Instrument Serif Fallback', Georgia, serif;
+  --lab-radius: 999px;
+  --lab-glass: transparent;
+  --lab-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --lab-dur: 240ms;
+  --lab-inset: clamp(16px, 1.5vw, 32px);
+  --lab-text-shadow: none;
+  --lab-chrome-z: 40;
+  --lab-preloader-z: 1000;
+}
+
+@media (max-width: 640px) {
+  :where(:root) {
+    --lab-inset: 14px;
+  }
+}
+
+/* ————— globals ————— */
+
+:focus-visible {
+  outline: 2px solid var(--lab-accent);
+  outline-offset: 3px;
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: 260ms cubic-bezier(0.4, 0, 1, 1) both lc-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 420ms cubic-bezier(0.16, 1, 0.3, 1) both lc-fade-in;
+}
+
+@keyframes lc-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes lc-fade-in {
+  from { opacity: 0; }
+}
+
+/* ————— type ————— */
+
+.lc-label {
+  font-family: var(--lab-font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ————— regions ————— */
+
+.lc {
+  display: contents;
+}
+
+.lc-home,
+.lc-tr,
+.lc-next,
+.lc-status {
+  position: fixed;
+  z-index: var(--lab-chrome-z);
+  color: var(--lab-mute);
+  text-shadow: var(--lab-text-shadow);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.lc-home {
+  top: var(--lab-inset);
+  left: var(--lab-inset);
+}
+
+.lc-tr {
+  top: var(--lab-inset);
+  right: var(--lab-inset);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  text-align: right;
+}
+
+.lc-next {
+  right: var(--lab-inset);
+  bottom: calc(var(--lab-inset) + env(safe-area-inset-bottom, 0px));
+}
+
+.lc-status {
+  left: var(--lab-inset);
+  bottom: calc(var(--lab-inset) + env(safe-area-inset-bottom, 0px));
+  max-width: 44vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-status:empty {
+  display: none;
+}
+
+/* ————— pills: home, note, next ————— */
+
+.lc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--lab-radius);
+  background: none;
+  color: var(--lab-mute);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--lab-dur) var(--lab-ease),
+    background-color var(--lab-dur) var(--lab-ease),
+    border-color var(--lab-dur) var(--lab-ease);
+}
+
+.lc-home {
+  color: var(--lab-ink);
+}
+
+.lc-pill:hover,
+.lc-note[aria-expanded='true'] {
+  color: var(--lab-ink);
+}
+
+.lc-note {
+  font-size: 12px;
+}
+
+.lc-arrow {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  transition: translate var(--lab-dur) var(--lab-ease);
+}
+
+.lc-home:hover .lc-arrow {
+  translate: -3px 0;
+}
+
+.lc-next:hover .lc-arrow {
+  translate: 3px 0;
+}
+
+/* ————— index block ————— */
+
+.lc-index {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.lc-index-n {
+  color: var(--lab-accent);
+}
+
+.lc-index-title {
+  font-family: var(--lab-font-display);
+  font-size: 22px;
+  line-height: 1.05;
+  color: var(--lab-ink);
+  max-width: 40vw;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ————— entrance: hidden while [data-enter] is set, rises when it is removed ————— */
+
+.lc[data-enter] .lc-home,
+.lc[data-enter] .lc-tr,
+.lc[data-enter] .lc-next,
+.lc[data-enter] .lc-status {
+  opacity: 0;
+}
+
+.lc:not([data-enter]) .lc-home,
+.lc:not([data-enter]) .lc-tr,
+.lc:not([data-enter]) .lc-next,
+.lc:not([data-enter]) .lc-status {
+  animation: lc-rise 700ms var(--lab-ease) both;
+}
+
+.lc:not([data-enter]) .lc-tr { animation-delay: 60ms; }
+.lc:not([data-enter]) .lc-next { animation-delay: 120ms; }
+.lc:not([data-enter]) .lc-status { animation-delay: 180ms; }
+
+@keyframes lc-rise {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+/* ————— design note panel: the page owns its box, the chrome owns its motion ————— */
+
+[data-lc-panel] {
+  transition:
+    opacity 260ms var(--lab-ease),
+    translate 260ms var(--lab-ease);
+}
+
+[data-lc-panel][data-state='closed'],
+[data-lc-panel][data-state='closing'] {
+  opacity: 0;
+  translate: 0 8px;
+}
+
+[data-lc-panel][data-state='closing'] {
+  transition-duration: 200ms;
+  pointer-events: none;
+}
+
+.lc-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--lab-radius);
+  background: none;
+  color: var(--lab-mute);
+  cursor: pointer;
+  transition: color var(--lab-dur) var(--lab-ease);
+}
+
+.lc-close:hover {
+  color: var(--lab-ink);
+}
+
+.lc-close + * {
+  padding-right: 36px;
+}
+
+/* ————— skins ————— */
+
+/* bracketed mono labels: [ LAB 01 / 05 ], [ DESIGN NOTE ], [ FPS 60 ] */
+.lc[data-skin~='brackets'] .lc-note {
+  gap: 0;
+}
+
+.lc[data-skin~='brackets'] .lc-index-label::before,
+.lc[data-skin~='brackets'] .lc-note::before,
+.lc[data-skin~='brackets'] .lc-status:not(:empty)::before {
+  content: '[\00a0';
+}
+
+.lc[data-skin~='brackets'] .lc-index-label::after,
+.lc[data-skin~='brackets'] .lc-note::after,
+.lc[data-skin~='brackets'] .lc-status:not(:empty)::after {
+  content: '\00a0]';
+}
+
+/* surfaced pills: glass (blurred) and chips (flat); shape from --lab-radius */
+.lc[data-skin~='glass'] .lc-pill,
+.lc[data-skin~='chips'] .lc-pill {
+  padding: 9px 14px;
+  background: var(--lab-glass);
+  border: 1px solid var(--lab-hairline);
+  text-shadow: none;
+}
+
+.lc[data-skin~='glass'] .lc-pill {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.lc[data-skin~='glass'] .lc-pill:hover,
+.lc[data-skin~='chips'] .lc-pill:hover,
+.lc[data-skin~='glass'] .lc-note[aria-expanded='true'],
+.lc[data-skin~='chips'] .lc-note[aria-expanded='true'] {
+  border-color: var(--lab-mute);
+}
+
+.lc[data-skin~='chips'] .lc-pill:active {
+  translate: 1px 1px;
+}
+
+/* ————— preloader curtain ————— */
+
+.lc-preloader {
+  position: fixed;
+  inset: 0;
+  z-index: var(--lab-preloader-z);
+  display: grid;
+  place-items: center;
+  background: var(--lab-bg);
+  color: var(--lab-ink);
+  transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lc-preloader.is-done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lc-preloader-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.lc-preloader-mark,
+.lc-preloader-index,
+.lc-preloader-stage {
+  color: var(--lab-mute);
+}
+
+.lc-preloader-title {
+  margin: 2px 0 14px;
+  font-family: var(--lab-font-display);
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.05;
+  color: var(--lab-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.lc-preloader-rule {
+  display: block;
+  width: min(320px, 60vw);
+  height: 1px;
+  background: var(--lab-hairline);
+  overflow: hidden;
+}
+
+.lc-preloader-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--lab-ink);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 400ms var(--lab-ease);
+}
+
+.lc-preloader-stage {
+  min-height: 1.2em;
+}
+
+/* ————— small screens ————— */
+
+@media (max-width: 640px) {
+  .lc-tr {
+    gap: 8px;
+  }
+
+  .lc-index-title {
+    font-size: 18px;
+    max-width: 50vw;
+  }
+
+  .lc-status {
+    max-width: 60vw;
+  }
+
+  /* keep the accessible name, drop the title from the visible pill */
+  .lc-next-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .lc[data-skin~='glass'] .lc-pill,
+  .lc[data-skin~='chips'] .lc-pill {
+    padding: 8px 12px;
+  }
+}
+
+/* ————— forced colours ————— */
+
+@media (forced-colors: active) {
+  .lc a,
+  .lc button,
+  .lc-close {
+    outline: 1px solid;
+  }
+
+  [aria-pressed='true'],
+  [aria-expanded='true'] {
+    outline: 2px solid Highlight;
+  }
+
+  .lc-preloader-rule,
+  .lc-preloader-fill {
+    forced-color-adjust: none;
+  }
+
+  .lc-preloader-rule {
+    background: GrayText;
+  }
+
+  .lc-preloader-fill {
+    background: CanvasText;
+  }
+}
+
+/* ————— reduced motion ————— */
+
+@media (prefers-reduced-motion: reduce) {
+  .lc *,
+  [data-lc-panel],
+  .lc-preloader,
+  .lc-preloader * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}

@@ -1,13 +1,23 @@
-/* ————— Walkthrough — foundation build ————— */
+/* ————— Walkthrough — bone and brass over a dusk beach ————— */
 
 :root {
-  --bg: #191713;
-  --ink: #23211c;
+  --bg: #6f6873; /* the first frame's sky, sampled — the shell paints in it, the curtain fades from it */
   --bone: #ece7db;
   --brass: #c9a76a;
   --brass-deep: #8a6b35;
-  --mono: "SF Mono", ui-monospace, Menlo, monospace;
-  --serif: Georgia, "Times New Roman", serif;
+  --mono: 'JetBrains Mono', 'JetBrains Mono Fallback', ui-monospace, Menlo, monospace;
+  --serif: 'Instrument Serif', 'Instrument Serif Fallback', Georgia, serif;
+  --sans: 'Switzer', 'Switzer Fallback', system-ui, sans-serif;
+
+  /* shared chrome tokens */
+  --lab-bg: var(--bg);
+  --lab-ink: var(--bone);
+  --lab-mute: rgba(236, 231, 219, 0.74);
+  --lab-accent: var(--brass);
+  --lab-hairline: rgba(236, 231, 219, 0.2);
+  --lab-font-ui: var(--mono);
+  --lab-font-display: var(--serif);
+  --lab-text-shadow: 0 1px 2px rgba(20, 16, 12, 0.5), 0 0 14px rgba(20, 16, 12, 0.3);
 }
 
 * {
@@ -22,122 +32,104 @@ body {
   overflow: hidden;
 }
 
+body {
+  font-family: var(--mono);
+  color: var(--bone);
+  -webkit-font-smoothing: antialiased;
+}
+
 #wt-gl {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
   display: block;
+  touch-action: none; /* one finger drags the view, never the page */
 }
 
-/* ————— HUD chrome ————— */
+/* ————— chrome skin: the label column stacks under the wordmark on a phone ————— */
 
-.hud {
+@media (max-width: 420px) {
+  .lc[data-skin~='wt'] .lc-tr {
+    top: calc(var(--lab-inset) + 30px);
+    left: var(--lab-inset);
+    right: auto;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .lc[data-skin~='wt'] .lc-index {
+    align-items: flex-start;
+  }
+}
+
+/* ————— sound toggle: sits above the status line ————— */
+
+.wt-sound {
   position: fixed;
-  z-index: 35; /* above the entry overlay, so the way home stays clickable while paused */
+  z-index: var(--lab-chrome-z);
+  left: var(--lab-inset);
+  bottom: calc(var(--lab-inset) + 24px + env(safe-area-inset-bottom, 0px));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(35, 33, 28, 0.6);
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-mute);
+  text-shadow: var(--lab-text-shadow);
+  cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  transition: color var(--lab-dur) var(--lab-ease);
 }
 
-.hud b {
-  color: rgba(35, 33, 28, 0.92);
-  font-weight: 600;
+.wt-sound:hover {
+  color: var(--lab-ink);
 }
 
-.hud .accent {
-  color: var(--brass-deep);
+.wt-sound[aria-pressed='false'] {
+  color: rgba(236, 231, 219, 0.5);
 }
 
-.hud-tl { top: 28px; left: 32px; }
-.hud-tr { top: 28px; right: 32px; text-align: right; }
-.hud-bl { bottom: 28px; left: 32px; }
-.hud-br { bottom: 28px; right: 32px; text-align: right; }
-
-a.hud {
-  text-decoration: none;
-  color: rgba(35, 33, 28, 0.6);
-  transition: color 0.3s ease;
-}
-
-a.hud:hover {
-  color: var(--brass-deep);
-}
-
-/* ————— sound toggle ————— */
-
-.hud-sound {
-  bottom: 50px;
-  left: 32px;
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-  transition: color 0.3s ease;
-}
-
-.hud-sound:hover,
-.hud-sound:focus-visible {
-  color: var(--brass-deep);
-  outline: none;
-}
-
-/* ————— design note ————— */
-
-.hud-note {
-  top: 48px;
-  right: 32px;
-  z-index: 35;
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  color: rgba(35, 33, 28, 0.6);
-  cursor: pointer;
-  transition: color 0.3s ease;
-}
-
-.hud-note:hover,
-.hud-note:focus-visible {
-  color: var(--brass-deep);
-  outline: none;
-}
+/* ————— design note: the page owns the box, the chrome owns its motion ————— */
 
 .wt-note-panel {
   position: fixed;
-  top: 76px;
-  right: 32px;
-  z-index: 35;
-  width: min(430px, calc(100vw - 48px));
-  max-height: calc(100vh - 110px);
+  top: calc(var(--lab-inset) + 72px);
+  right: var(--lab-inset);
+  z-index: var(--lab-chrome-z);
+  width: min(440px, calc(100vw - 2 * var(--lab-inset)));
+  max-height: calc(100vh - var(--lab-inset) - 110px);
   overflow-y: auto;
   background: rgba(22, 20, 16, 0.92);
   border: 1px solid rgba(236, 231, 219, 0.16);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding: 24px 26px 22px;
 }
 
 .wt-note-panel h2 {
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.3em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--brass);
   margin: 0 0 14px;
 }
 
 .wt-note-panel p {
-  font-family: var(--serif);
-  font-size: 13.5px;
-  line-height: 1.7;
-  letter-spacing: 0.02em;
-  color: rgba(236, 231, 219, 0.82);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.65;
+  letter-spacing: 0.005em;
+  color: rgba(236, 231, 219, 0.84);
   margin: 0 0 12px;
 }
 
@@ -155,9 +147,18 @@ a.hud:hover {
 
 .wt-note-panel code {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1.7;
   color: var(--bone);
+}
+
+/* on a phone the panel sits under the stacked header and stops short of the sound toggle;
+   this must follow the base rule above, which it otherwise ties on specificity */
+@media (max-width: 420px) {
+  .wt-note-panel {
+    top: calc(var(--lab-inset) + 108px);
+    max-height: calc(100vh - var(--lab-inset) - 168px);
+  }
 }
 
 /* ————— the markers' hint ————— */
@@ -166,13 +167,15 @@ a.hud:hover {
   position: fixed;
   z-index: 20;
   left: 50%;
-  bottom: 88px;
+  bottom: calc(var(--lab-inset) + 64px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
+  margin: 0;
   font-family: var(--serif);
   font-style: italic;
-  font-size: 14px;
-  letter-spacing: 0.06em;
-  color: rgba(35, 33, 28, 0.62);
+  font-size: 17px;
+  letter-spacing: 0.03em;
+  color: rgba(236, 231, 219, 0.82);
+  text-shadow: var(--lab-text-shadow);
   opacity: 0;
   transition: opacity 1.8s ease;
   pointer-events: none;
@@ -188,7 +191,7 @@ a.hud:hover {
 #wt-white {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 60; /* over the chrome — the cut takes the whole screen */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -202,8 +205,8 @@ a.hud:hover {
   padding: 24px;
   font-family: var(--serif);
   font-style: italic;
-  font-size: clamp(18px, 2.4vw, 26px);
-  letter-spacing: 0.04em;
+  font-size: clamp(22px, 2.8vw, 32px);
+  letter-spacing: 0.02em;
   color: rgba(38, 35, 29, 0.82);
   opacity: 0;
   transition: opacity 1.4s ease;
@@ -236,15 +239,17 @@ a.hud:hover {
   background: rgba(22, 20, 16, 0.88);
   border: 1px solid rgba(236, 231, 219, 0.16);
   padding: 38px 44px 34px;
-  max-width: min(440px, 100%);
+  max-width: min(460px, 100%);
   text-align: center;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .wt-kicker {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.3em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--brass);
   margin: 0 0 14px;
@@ -253,8 +258,9 @@ a.hud:hover {
 .wt-card h1 {
   font-family: var(--serif);
   font-weight: 400;
-  font-size: clamp(26px, 4vw, 38px);
-  letter-spacing: 0.01em;
+  font-size: clamp(32px, 4.6vw, 46px);
+  line-height: 1.05;
+  letter-spacing: 0.005em;
   color: var(--bone);
   margin: 0 0 14px;
 }
@@ -264,46 +270,53 @@ a.hud:hover {
   font-size: 11px;
   line-height: 1.8;
   letter-spacing: 0.04em;
-  color: rgba(236, 231, 219, 0.66);
+  color: rgba(236, 231, 219, 0.7);
   margin: 0 0 26px;
 }
 
 .wt-enter {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--bone);
   background: transparent;
   border: 1px solid rgba(236, 231, 219, 0.35);
   padding: 11px 26px;
   cursor: pointer;
-  transition: border-color 0.3s ease, color 0.3s ease;
+  transition:
+    border-color var(--lab-dur) var(--lab-ease),
+    color var(--lab-dur) var(--lab-ease),
+    opacity var(--lab-dur) var(--lab-ease);
 }
 
-.wt-enter:hover,
-.wt-enter:focus-visible {
+.wt-enter:hover {
   border-color: var(--brass);
   color: var(--brass);
-  outline: none;
+}
+
+/* waits for the head to be seated and the first frame to land */
+.wt-enter[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: progress;
+  border-style: dashed;
 }
 
 .wt-leave {
   display: block;
   margin-top: 18px;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
+  font-size: 11px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   text-decoration: none;
-  color: rgba(236, 231, 219, 0.45);
-  transition: color 0.3s ease;
+  color: rgba(236, 231, 219, 0.5);
+  transition: color var(--lab-dur) var(--lab-ease);
 }
 
-.wt-leave:hover,
-.wt-leave:focus-visible {
+.wt-leave:hover {
   color: var(--brass);
-  outline: none;
 }
 
 /* ————— the crosshair: aim lives at screen centre while the pointer is locked ————— */
@@ -328,20 +341,25 @@ a.hud:hover {
   opacity: 0.85;
 }
 
-/* ————— entrance ————— */
+/* ————— entrance: pre-hidden while the curtain is up, so nothing paints then hides ————— */
+
+html.js.lc-loading #wt-gl,
+html.js.lc-loading .wt-card,
+html.js.lc-loading .wt-sound {
+  opacity: 0;
+}
 
 @media (prefers-reduced-motion: no-preference) {
-  #wt-gl {
+  html.js:not(.lc-loading) #wt-gl {
     animation: wt-fade 1.6s ease-out both;
   }
-  .hud {
-    animation: wt-rise 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  html.js:not(.lc-loading) .wt-card {
+    animation: wt-rise 1.1s var(--lab-ease) 0.15s both;
   }
-  .hud-tr { animation-delay: 0.08s; }
-  .hud-bl { animation-delay: 0.16s; }
-  .hud-br { animation-delay: 0.24s; }
-  .wt-card {
-    animation: wt-rise 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+
+  html.js:not(.lc-loading) .wt-sound {
+    animation: wt-rise 0.7s var(--lab-ease) 0.24s both;
   }
 }
 
@@ -351,27 +369,43 @@ a.hud:hover {
 }
 
 @keyframes wt-rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
 }
 
 /* ————— small screens ————— */
 
 @media (max-width: 640px) {
-  .hud-bl,
-  .hud-br,
-  .hud-sound {
-    display: none;
+  .wt-card {
+    padding: 30px 24px 26px;
   }
-  .hud-tl { top: 20px; left: 20px; }
-  .hud-tr { top: 20px; right: 20px; }
-  .hud-note { top: 42px; right: 20px; }
-  .wt-note-panel { top: 68px; right: 20px; width: calc(100vw - 40px); }
-  .wt-card { padding: 30px 26px 28px; }
 }
 
+/* ————— forced colours ————— */
+
+@media (forced-colors: active) {
+  .wt-sound,
+  .wt-enter,
+  .wt-leave {
+    outline: 1px solid;
+  }
+
+  .wt-card,
+  .wt-note-panel {
+    border-color: CanvasText;
+  }
+}
+
+/* ————— reduced motion: no sound toggle (reduced hears nothing), no rises ————— */
+
 @media (prefers-reduced-motion: reduce) {
-  .hud-sound {
+  .wt-sound {
     display: none;
+  }
+
+  .wt-hint,
+  .wt-enter,
+  .wt-leave {
+    transition-duration: 0.01ms;
   }
 }

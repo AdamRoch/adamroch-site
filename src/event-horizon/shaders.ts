@@ -7,10 +7,11 @@ export const vertexShader = /* glsl */ `
   }
 `;
 
-// Exhibit 001 — a black hole rendered by bending rays through a simple
+// Lab 01: a black hole rendered by bending rays through a simple
 // gravitational potential. One march handles capture (event horizon),
-// the accretion disk (plane y=0), and a code sheet (plane x=XS) that gets
-// lensed into the hole. No meshes, no assets — everything is this shader.
+// the accretion disk (plane y=0), and a code sheet (plane z=SHEET_Z) that gets
+// lensed into the hole. No meshes, no assets: everything is this shader.
+// Output is linear HDR light; the grade pass below owns vignette, tone and grain.
 export const fragmentShader = /* glsl */ `
   precision highp float;
 
@@ -94,8 +95,9 @@ export const fragmentShader = /* glsl */ `
     float aspect = uRes.x / uRes.y;
     uv.x *= aspect;
 
-    // fit the scene by width on portrait screens
-    float focal = FOCAL / min(1.0, aspect * 1.2);
+    // fit the scene by width on portrait screens: a shorter focal is a wider lens
+    // (the ring lands at ~84% of the width on any portrait aspect)
+    float focal = FOCAL * min(1.0, aspect * 1.05);
 
     vec3 v = normalize(uCamFwd * focal + uCamRight * uv.x + uCamUp * uv.y);
     vec3 p = uCamPos;
@@ -177,14 +179,62 @@ export const fragmentShader = /* glsl */ `
     // lift pure black a touch so the void stays filmic
     col += vec3(0.006, 0.005, 0.006);
 
-    // vignette
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+// Grade pass: runs once over the bloomed HDR buffer, straight to the canvas.
+// vignette in linear, tone curve, display encoding, then luminance-weighted
+// film grain sized to the device pixel and an interleaved-gradient-noise
+// dither so the void never bands.
+export const gradeFragmentShader = /* glsl */ `
+  precision highp float;
+
+  #include <tonemapping_pars_fragment>
+
+  varying vec2 vUv;
+
+  uniform sampler2D tScene;
+  uniform float uTime;
+  uniform float uGrain;
+  uniform int uTone; // 0 house curve (the original in-march curve), 1 AgX, 2 ACES
+
+  float hash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+  }
+
+  // Jimenez 2014
+  float ign(vec2 p) {
+    return fract(52.9829189 * fract(0.06711056 * p.x + 0.00583715 * p.y));
+  }
+
+  void main() {
+    vec3 col = texture2D(tScene, vUv).rgb;
+
+    // vignette on the linear signal, the same falloff the march used to apply
     vec2 vg = vUv - 0.5;
     col *= 1.0 - dot(vg, vg) * 1.15;
 
-    // soft filmic tonemap
-    col = 1.0 - exp(-col * 1.45);
-    col = pow(col, vec3(0.9));
+    if (uTone == 1) {
+      col = sRGBTransferOETF(vec4(AgXToneMapping(col), 1.0)).rgb;
+    } else if (uTone == 2) {
+      col = sRGBTransferOETF(vec4(ACESFilmicToneMapping(col), 1.0)).rgb;
+    } else {
+      col *= toneMappingExposure;
+      col = 1.0 - exp(-col * 1.45);
+      col = pow(col, vec3(0.9));
+    }
 
-    gl_FragColor = vec4(col, 1.0);
+    // film grain: one speck per device pixel, quieter in the highlights
+    float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    vec2 seed = gl_FragCoord.xy + vec2(fract(uTime * 1.618), fract(uTime * 2.236)) * 1024.0;
+    col += (hash12(seed) - 0.5) * uGrain * (1.0 - 0.75 * luma);
+
+    // dither +-0.5/255
+    col += (ign(gl_FragCoord.xy) - 0.5) / 255.0;
+
+    gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }
 `;

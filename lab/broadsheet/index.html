@@ -3,13 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Attention Is a Material — a scroll-driven typographic broadsheet. An essay on the scarcest resource on the web, by Adam Roch." />
+    <meta name="description" content="Attention Is a Material: a scroll-driven typographic broadsheet. An essay on the scarcest resource on the web, by Adam Roch." />
     <meta name="theme-color" content="#f4f1ea" />
-    <title>Attention Is a Material — The Lab — Adam Roch</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Attention Is a Material · Lab 05 · Adam Roch</title>
     <script>
       if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
         document.documentElement.classList.add('bs-js');
     </script>
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/JetBrainsMono-Variable.woff2" />
+    <link rel="stylesheet" href="/src/fonts.css" />
     <link rel="preconnect" href="https://api.fontshare.com" />
     <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
     <link
@@ -27,23 +30,10 @@
     <div class="crop crop-bl" aria-hidden="true"></div>
     <div class="crop crop-br" aria-hidden="true"></div>
 
-    <nav class="chipbar" aria-label="Page controls">
-      <a class="chip chip-home" href="/" aria-label="Back to adamroch.com">&larr; Home</a>
-      <button
-        class="chip chip-note"
-        id="bs-note-btn"
-        type="button"
-        aria-expanded="false"
-        aria-controls="bs-note-panel"
-      >
-        Design note
-      </button>
-    </nav>
-
     <header class="masthead" id="top">
       <div class="mast-inner">
         <p class="mast-meta mono">
-          <span>Adam Roch — The Lab</span>
+          <span>Adam Roch &middot; The Lab</span>
           <span class="mast-meta-mid">Broadsheet No. 05</span>
           <span>Printed in the browser</span>
         </p>
@@ -78,7 +68,7 @@
         <div class="prose">
           <h2 id="s1-h" data-reveal>A commodity with no warehouse</h2>
           <p class="dropcap">
-            Gold is rare. Uranium is rarer. But both hold still — you can stockpile them, insure
+            Gold is rare. Uranium is rarer. But both hold still: you can stockpile them, insure
             them, steal them. Attention won't hold still. It arrives at roughly sixteen waking
             hours a day, unbuffered, and whatever you fail to spend today is simply gone.
           </p>
@@ -105,7 +95,7 @@
           <p>
             The extraction equipment has names you know. Infinite scroll removes the stopping cue.
             Autoplay removes the decision. Pull-to-refresh is a slot lever, and the variable-reward
-            schedule behind it predates the web by decades — B.&nbsp;F. Skinner ran the original
+            schedule behind it predates the web by decades. B.&nbsp;F. Skinner ran the original
             trials; he just didn't have push notifications.
           </p>
           <p>
@@ -121,7 +111,7 @@
         <blockquote>
           <p class="pull-text">The feed doesn't want your opinion. It wants your Tuesday.</p>
         </blockquote>
-        <figcaption class="pull-cite mono">— Overheard at a metrics review</figcaption>
+        <figcaption class="pull-cite mono">Overheard at a metrics review</figcaption>
       </figure>
 
       <hr class="hr" />
@@ -140,7 +130,7 @@
           </p>
           <p>
             An hour in the feed evaporates. The same hour spent building, writing, or reading
-            something hard leaves residue — skill, memory, a half-formed idea that shows up
+            something hard leaves residue: skill, memory, a half-formed idea that shows up
             uninvited on Thursday. Invested attention compounds like interest. Harvested attention
             depreciates like inventory.
           </p>
@@ -156,7 +146,7 @@
         <span class="plate-stamp mono">Plate I</span>
         <figcaption class="plate-caption mono">
           <span>Hairline field under pointer pressure</span>
-          <span class="plate-caption-right">Move slowly — the rules are shy</span>
+          <span class="plate-caption-right">Move slowly, the rules are shy</span>
         </figcaption>
       </figure>
 
@@ -174,7 +164,7 @@
             owning, or it harvests it for someone else's numbers.
           </p>
           <p>
-            So design like the reader paid at the door, because they did — in the one currency
+            So design like the reader paid at the door, because they did, in the one currency
             that never refunds. Cut the autoplay. End the article. Let a finished page feel
             finished; endings are a feature.
           </p>
@@ -189,7 +179,7 @@
         <blockquote>
           <p class="pull-text">Design like the reader paid for this. They did.</p>
         </blockquote>
-        <figcaption class="pull-cite mono">— House style, effective immediately</figcaption>
+        <figcaption class="pull-cite mono">House style, effective immediately</figcaption>
       </figure>
 
       <hr class="hr" />
@@ -225,7 +215,7 @@
             <dl class="credits">
               <div class="credit">
                 <dt class="mono">Type</dt>
-                <dd>Clash Display Variable — masthead and pull quotes. Sentient — text.</dd>
+                <dd>Clash Display Variable for the masthead and pull quotes. Sentient for the text. JetBrains Mono for the labels.</dd>
               </div>
               <div class="credit">
                 <dt class="mono">Inks</dt>
@@ -244,7 +234,7 @@
           <a class="home-link" href="/" data-reveal>&larr; Back to the lab</a>
         </div>
         <p class="colo-fine mono">
-          &copy; 2026 Adam Roch — set and printed in the browser. The reader paid for this. They
+          &copy; 2026 Adam Roch. Set and printed in the browser. The reader paid for this. They
           did.
         </p>
       </footer>
@@ -256,14 +246,15 @@
       <span class="folio-page mono" id="folio-page">Folio 01 / 09</span>
     </div>
 
-    <aside class="note-panel" id="bs-note-panel" aria-label="Design note — how this page is built" hidden>
+    <aside class="note-panel" id="bs-note-panel" aria-label="Design note: how this page is built" hidden>
       <h2>How it's printed</h2>
       <p>
         This page is a love letter to flat: paper ground, black ink, one spot color, hairlines
-        everywhere. No WebGL, no gradients — the fidelity lives entirely in typesetting and motion
+        everywhere. No WebGL, no gradients: the fidelity lives entirely in typesetting and motion
         curves. The masthead breathes on Clash Display's weight axis (a variable font, wght
         200&ndash;700), tweened through a proxy object into font-variation-settings so the ink
-        visibly swells as each line rises out of its mask.
+        visibly swells as each line rises out of its mask. The rise waits for the font to arrive,
+        so the swell always happens in the real face.
       </p>
       <p>
         The redaction bars are absolutely positioned rectangles of ink, peeled away by a scrubbed
@@ -281,14 +272,15 @@ chars.forEach((c, i) =&gt; gsap.to(c, {
   duration: 0.55, ease: 'power3.out', overwrite: 'auto',
 }));</code></pre>
       <p>
-        Plate I is Canvas 2D: about fifty vertical rules sampled at twenty-six points each,
+        Plate I is Canvas 2D: about fifty vertical rules sampled at seventy-two points each,
         displaced by a gaussian falloff around the eased pointer position, with every sixth rule
         pulled in spot orange. It only runs its rAF loop while intersecting the viewport.
       </p>
       <p>
-        prefers-reduced-motion collapses everything to final state — bars hidden, type at rest
+        prefers-reduced-motion collapses everything to final state: bars hidden, type at rest
         weight, plate rendered once, pins removed. On mobile the scenes unpin and the type rescales;
-        the essay reads fully either way.
+        the essay reads fully either way. And because it is a broadsheet, it prints: the chrome and
+        pins step aside, every line is revealed, and each section gets its own sheet with crop marks.
       </p>
     </aside>
 

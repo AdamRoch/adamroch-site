@@ -4,8 +4,13 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { watchQuality } from '../lab-quality';
-import './style.css';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { watchQuality, startLoop, setupRendererDebug } from '../lab-quality';
+import { report, loaded, nextFrame } from './loading';
+
+// This module is loaded by boot.ts after the curtain is up. The build below is
+// chunked with top-level awaits so the preloader's rule moves on real work and
+// no single task runs long; boot.ts's dynamic import resolves once it is done.
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -59,10 +64,11 @@ function makeMossCanvas(seed: number, size = 2048): HTMLCanvasElement {
 
 // luminance becomes a height field; central differences give tangent-space
 // normals, inverted luminance gives roughness (bright clumps sit smoother)
-function makeMossDetailMaps(
+async function makeMossDetailMaps(
   src: HTMLCanvasElement,
+  onRows: (fraction: number) => Promise<void>,
   size = 1024
-): { normal: HTMLCanvasElement; rough: HTMLCanvasElement } {
+): Promise<{ normal: HTMLCanvasElement; rough: HTMLCanvasElement }> {
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d');
@@ -82,11 +88,14 @@ function makeMossDetailMaps(
       (data[i * 4] * 0.2126 + data[i * 4 + 1] * 0.7152 + data[i * 4 + 2] * 0.0722) / 255;
   }
 
+  await onRows(0); // the readback above rasterises the whole moss canvas: give it its own task
   const nImg = nctx.createImageData(size, size);
   const rImg = rctx.createImageData(size, size);
   const L = (x: number, y: number): number => lum[((y + size) % size) * size + ((x + size) % size)];
   const STR = 2.2; // height→normal strength
+  const CHUNK = 256; // rows per task, so the bake never holds the thread long
   for (let y = 0; y < size; y++) {
+    if (y > 0 && y % CHUNK === 0) await onRows(y / size);
     for (let x = 0; x < size; x++) {
       const i = y * size + x;
       const dx = (L(x + 1, y) - L(x - 1, y)) * STR;
@@ -169,11 +178,14 @@ function makeGlowSprite(): THREE.CanvasTexture {
 const BG = 0x525e44; // lighter, greener morning haze
 const canvas = document.getElementById('lw-gl') as HTMLCanvasElement;
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+// the composer's MSAA targets do the anti-aliasing; the canvas itself only
+// receives a fullscreen blit, so no default-framebuffer multisampling
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+setupRendererDebug(renderer);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight, false); // the CSS owns the canvas box
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 
@@ -225,8 +237,17 @@ const fill = new THREE.PointLight(0x88a057, 40, 18);
 fill.position.set(-4, 3, 2);
 scene.add(fill);
 
+report(0.04);
+await nextFrame();
 const mossCanvas = makeMossCanvas(1234);
-const mossDetail = makeMossDetailMaps(mossCanvas);
+report(0.12);
+await nextFrame();
+const mossDetail = await makeMossDetailMaps(mossCanvas, async (f) => {
+  report(0.12 + f * 0.08);
+  await nextFrame();
+});
+report(0.2);
+await nextFrame();
 
 const mossTex = new THREE.CanvasTexture(mossCanvas);
 mossTex.wrapS = mossTex.wrapT = THREE.RepeatWrapping;
@@ -265,21 +286,43 @@ ground.position.y = -0.02;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// fresh morning sky: green-blue zenith over a bright, clean horizon
+// upload the big maps now, spread across the build instead of on the first frame
+for (const tex of [mossTex, mossNormalTex, mossRoughTex, groundTex, groundNormalTex, groundRoughTex]) {
+  renderer.initTexture(tex);
+}
+report(0.28);
+await nextFrame();
+
+// fresh morning sky: the camera's view band lands at canvas y≈90–170, so
+// the vibrant transitions (teal → fresh green → warm gold) live there;
+// above that a deeper blue waits for the ride's upward looks
 function makeSkyTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 2;
+  c.width = 512;
   c.height = 256;
   const ctx = c.getContext('2d');
   if (ctx) {
     const grad = ctx.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, '#6f8272');
-    grad.addColorStop(0.4, '#93a582');
-    grad.addColorStop(0.58, '#aeb98d');
-    grad.addColorStop(0.72, '#5e6650');
-    grad.addColorStop(1, '#333a2b');
+    grad.addColorStop(0, '#2a5f9e');
+    grad.addColorStop(0.22, '#2f8ba4');
+    grad.addColorStop(0.35, '#33a497');
+    grad.addColorStop(0.44, '#6fb35f');
+    grad.addColorStop(0.52, '#c8c463');
+    grad.addColorStop(0.58, '#eab956');
+    grad.addColorStop(0.65, '#c08f42');
+    grad.addColorStop(0.75, '#75713f');
+    grad.addColorStop(0.88, '#4c563e');
+    grad.addColorStop(1, '#2f3627');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 2, 256);
+    ctx.fillRect(0, 0, 512, 256);
+    // soft warm glow low in the sky, near the center of the idle view
+    // (canvas x≈384 faces the camera; nudged left for asymmetry)
+    const glow = ctx.createRadialGradient(330, 150, 10, 330, 150, 140);
+    glow.addColorStop(0, 'rgba(255,216,140,0.5)');
+    glow.addColorStop(0.5, 'rgba(255,206,125,0.2)');
+    glow.addColorStop(1, 'rgba(255,200,115,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, 512, 256);
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -443,6 +486,9 @@ ARCHES.slice(0, 2).forEach((def) => {
   scene.add(pts);
 });
 
+report(0.5);
+await nextFrame();
+
 /* ————— grass: wind sway + sun backlight, patched into the standard material ————— */
 
 const grassUniforms = {
@@ -575,6 +621,9 @@ const grassMeshes = grassMats.map(
     scene.add(mesh);
   });
 }
+grassMats.forEach((mat) => renderer.initTexture(mat.map as THREE.Texture));
+report(0.6);
+await nextFrame();
 
 /* ————— foreground LOD: real tapered blades in the near strip (z > 2) ————— */
 
@@ -646,6 +695,8 @@ const bladeMesh = new THREE.InstancedMesh(makeBladeGeometry(), bladeMat, BLADES)
   if (bladeMesh.instanceColor) bladeMesh.instanceColor.needsUpdate = true;
   scene.add(bladeMesh);
 }
+report(0.68);
+await nextFrame();
 
 /* ————— mushroom clusters at the arch bases ————— */
 
@@ -659,14 +710,46 @@ const stemMat = new THREE.MeshStandardMaterial({ color: 0xd8cdb0, roughness: 0.9
 const capGeo = new THREE.SphereGeometry(1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
 const stemGeo = new THREE.CylinderGeometry(0.34, 0.5, 1, 8);
 
-// one foot of each of five arches, alternating sides
+// one foot of each of five arches, alternating sides. Clusters sit well
+// clear of the leg: the geometry jitter can push the tube's base as far as
+// 0.1·radius + 1.1·tube past its nominal foot point, and at glancing camera
+// angles a small real gap still reads as "the arch stands on the mushroom" —
+// so the offset and per-mushroom resample add a wide berth on top of that
+// worst-case reach. The arch must grow out of the ground, not the mushrooms.
 const clusterSpots: THREE.Vector3[] = [];
 [0, 1, 2, 4, 5].forEach((ai, k) => {
   const def = ARCHES[ai];
-  const lx = def.radius * (k % 2 === 0 ? 1 : -1);
+  const side = k % 2 === 0 ? 1 : -1;
+  const reach = def.radius * 0.1 + def.tube * 1.1;
+  const lx = (def.radius + reach + 1.0) * side;
   clusterSpots.push(
-    new THREE.Vector3(def.x + Math.cos(def.rotY) * lx, 0, def.z - Math.sin(def.rotY) * lx)
+    new THREE.Vector3(
+      def.x + Math.cos(def.rotY) * lx,
+      0,
+      def.z - Math.sin(def.rotY) * lx
+    )
   );
+});
+
+// ground samples along every arch's low sections (feet and the start of the
+// span): a mushroom is only accepted if it clears all of them, so no cap can
+// end up under any leg or wedged in a small arch's fork from any angle
+interface LegSample {
+  x: number;
+  z: number;
+  reach: number;
+}
+const legSamples: LegSample[] = [];
+ARCHES.forEach((def) => {
+  const reach = def.radius * 0.1 + def.tube * 1.1;
+  const cosY = Math.cos(def.rotY);
+  const sinY = Math.sin(def.rotY);
+  for (let i = 0; i <= 24; i++) {
+    const u = (i / 24) * Math.PI;
+    if (Math.sin(u) * def.radius > 0.9) continue; // high span overhead is fine
+    const lx = Math.cos(u) * def.radius;
+    legSamples.push({ x: def.x + cosY * lx, z: def.z - sinY * lx, reach });
+  }
 });
 
 clusterSpots.forEach((spot) => {
@@ -685,7 +768,20 @@ clusterSpots.forEach((spot) => {
     cap.castShadow = true;
     stem.castShadow = true;
     shroom.add(stem, cap);
-    shroom.position.set((Math.random() - 0.5) * 0.55, 0, (Math.random() - 0.5) * 0.55);
+    // resample any position whose cap would come near a (jittered) arch leg
+    let px = 0;
+    let pz = 0;
+    for (let tries = 0; tries < 12; tries++) {
+      px = (Math.random() - 0.5) * 0.55;
+      pz = (Math.random() - 0.5) * 0.55;
+      const wx = spot.x + px;
+      const wz = spot.z + pz;
+      const clear = legSamples.every(
+        (ls) => Math.hypot(wx - ls.x, wz - ls.z) > ls.reach + s + 0.25
+      );
+      if (clear) break;
+    }
+    shroom.position.set(px, 0, pz);
     shroom.rotation.y = Math.random() * Math.PI * 2;
     shroom.rotation.z = (Math.random() - 0.5) * 0.18;
     cluster.add(shroom);
@@ -779,6 +875,8 @@ const leafGeo = new THREE.PlaneGeometry(0.1, 0.14);
     vines.push({ group, phase: Math.random() * Math.PI * 2 });
   }
 });
+report(0.74);
+await nextFrame();
 
 /* ————— dust motes — falling spores ————— */
 
@@ -1150,29 +1248,6 @@ if (reduced) {
 
 let lastScan = 0;
 
-/* ————— design note toggle ————— */
-
-const noteBtn = document.getElementById('lw-note-btn') as HTMLButtonElement | null;
-const notePanel = document.getElementById('lw-note-panel') as HTMLElement | null;
-
-function setNoteOpen(open: boolean): void {
-  if (!noteBtn || !notePanel) return;
-  noteBtn.setAttribute('aria-expanded', String(open));
-  notePanel.hidden = !open;
-}
-
-noteBtn?.addEventListener('click', () => {
-  if (!noteBtn || !notePanel) return;
-  setNoteOpen(noteBtn.getAttribute('aria-expanded') !== 'true');
-});
-
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && notePanel && !notePanel.hidden) {
-    setNoteOpen(false);
-    noteBtn?.focus();
-  }
-});
-
 /* ————— interaction state ————— */
 
 let drift = !reduced;
@@ -1180,25 +1255,16 @@ let mouseX = 0;
 let mouseY = 0;
 let camX = 0;
 let camY = 1.5;
-let ringX = -100;
-let ringY = -100;
-let ringTX = -100;
-let ringTY = -100;
-
-const ring = document.getElementById('lw-cursor');
-const finePointer = window.matchMedia('(pointer: fine)').matches;
-if (ring && finePointer && !reduced) ring.hidden = false;
 
 window.addEventListener('pointermove', (e) => {
   mouseX = (e.clientX / window.innerWidth) * 2 - 1;
   mouseY = 1 - (e.clientY / window.innerHeight) * 2;
-  ringTX = e.clientX;
-  ringTY = e.clientY;
 });
 
-/* ————— intro ————— */
+/* ————— intro: runs on the first real frame, as the curtain lifts ————— */
 
-if (!reduced) {
+function startIntro(): void {
+  if (reduced) return;
   archGroups.forEach((group, i) => {
     gsap.to(group.userData, {
       base: 1,
@@ -1207,15 +1273,10 @@ if (!reduced) {
       ease: 'elastic.out(1, 0.65)',
     });
   });
-  gsap.from('.lw-nav', {
-    opacity: 0,
-    y: -36,
-    duration: 1.0,
-    ease: 'power3.out',
-    delay: 0.35,
-    clearProps: 'opacity,transform',
-  });
-  gsap.from('[data-lw-ui]:not(.lw-nav)', {
+  // the html.js pre-hide drops in the same task the tween writes its first
+  // frame, so nothing paints between the two
+  document.documentElement.classList.add('lw-in');
+  gsap.from('[data-lw-ui]', {
     opacity: 0,
     y: 26,
     duration: 1.1,
@@ -1259,6 +1320,102 @@ const bloomPass = new UnrealBloomPass(
 );
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
+
+/* ————— final pass: film grain, dither and vignette after tone mapping ————— */
+
+// runs on the sRGB-encoded output so the dither lands right before 8-bit
+// quantisation. grain is sized in device pixels and weighted toward the
+// mid-tones; the vignette reproduces the former DOM overlay (clear to 58% of
+// the corner distance, then to 38% of the ink colour at the corners)
+const finalPass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uGrain: { value: 0.035 },
+  },
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uGrain;
+    varying vec2 vUv;
+
+    // interleaved gradient noise: a stable ordered pattern for the dither
+    float ign(vec2 p) {
+      return fract(52.9829189 * fract(0.06711056 * p.x + 0.00583715 * p.y));
+    }
+    // white-ish hash for the grain, re-seeded every frame
+    float hash(vec2 p) {
+      vec3 q = fract(vec3(p.xyx) * 0.1031);
+      q += dot(q, q.yzx + 33.33);
+      return fract((q.x + q.y) * q.z);
+    }
+
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec2 px = gl_FragCoord.xy;
+
+      float lum = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+      vec2 seed = vec2(fract(uTime * 0.37), fract(uTime * 0.71)) * 512.0;
+      float g = hash(px + seed) - 0.5;
+      c.rgb += g * uGrain * (1.0 - lum * 0.7);
+
+      float r = length((vUv - 0.5) * 2.0) * 0.70710678; // 1.0 at the corners
+      float v = clamp((r - 0.58) / 0.42, 0.0, 1.0);
+      c.rgb = mix(c.rgb, vec3(0.0706, 0.0863, 0.051), v * 0.38);
+
+      c.rgb += (ign(px) - 0.5) / 255.0;
+      gl_FragColor = c;
+    }`,
+});
+composer.addPass(finalPass);
+
+/* ————— compile: every program links in parallel behind the curtain ————— */
+
+report(0.78);
+await nextFrame();
+// KHR_parallel_shader_compile: the scene's programs link off-thread while we
+// poll. The composer draws the scene into a linear HDR target, and the program
+// cache keys on that (no tone mapping, linear output), so compile against the
+// same target or every program would be built a second time on the first frame
+renderer.setRenderTarget(composer.renderTarget1);
+await renderer.compileAsync(scene, camera);
+// the bloom and final-pass programs would otherwise link on their first draw:
+// give them the same lightless, fogless state their fullscreen quads draw in,
+// on the same attribute set (position + uv, no normals: that is in the cache key)
+const quadGeo = new THREE.BufferGeometry();
+quadGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, 3, 0, -1, -1, 0, 3, -1, 0], 3));
+quadGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 2, 0, 0, 2, 0], 2));
+const quads = (mats: THREE.Material[]): THREE.Group => {
+  const g = new THREE.Group();
+  for (const m of mats) g.add(new THREE.Mesh(quadGeo, m));
+  return g;
+};
+await renderer.compileAsync(
+  quads([bloomPass.materialHighPassFilter, ...bloomPass.separableBlurMaterials, bloomPass.compositeMaterial, bloomPass.blendMaterial]),
+  camera
+);
+renderer.setRenderTarget(null);
+await renderer.compileAsync(quads([finalPass.material]), camera);
+quadGeo.dispose();
+report(0.9);
+await nextFrame();
+// first-use GPU work happens behind the curtain, in two tasks: the scene draw
+// (geometry and texture uploads, both shadow maps, the depth program) into the
+// composer's own buffer, then the post chain (its targets and the output pass)
+renderer.setRenderTarget(composer.readBuffer);
+renderer.render(scene, camera);
+renderer.setRenderTarget(null);
+report(0.94);
+await nextFrame();
+composer.render();
+report(0.97);
+await nextFrame();
 
 /* ————— dynamic bits shared by the loop and the static render ————— */
 
@@ -1310,13 +1467,21 @@ function tick(time: number): void {
 
 /* ————— loop ————— */
 
-const timer = new THREE.Timer();
 let t = 0;
+let live = false;
 
-function frame(): void {
-  timer.update();
-  const dt = Math.min(timer.getDelta(), 0.05);
-  t += dt;
+// the first real frame lifts the curtain, fades the canvas in and starts the intro
+function reveal(): void {
+  if (live) return;
+  live = true;
+  document.documentElement.classList.add('lw-live');
+  void loaded();
+  startIntro();
+}
+
+function frame(step: number, time: number): void {
+  const dt = Math.min(step, 0.05);
+  t = time;
 
   tick(t);
 
@@ -1367,20 +1532,15 @@ function frame(): void {
     camera.lookAt(0, 1.3, -2);
   }
 
-  if (ring && !ring.hidden) {
-    ringX += (ringTX - ringX) * 0.18;
-    ringY += (ringTY - ringY) * 0.18;
-    ring.style.transform = `translate(${ringX}px, ${ringY}px)`;
-  }
-
+  finalPass.uniforms.uTime.value = t;
   composer.render();
-  requestAnimationFrame(frame);
+  reveal();
 }
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
   composer.setSize(window.innerWidth, window.innerHeight);
   if (reduced) composer.render();
 });
@@ -1393,8 +1553,10 @@ if (reduced) {
   } else {
     camera.lookAt(0, 1.3, -2);
   }
+  finalPass.uniforms.uTime.value = 3.1;
   composer.render();
+  reveal();
 } else {
-  frame();
+  startLoop(frame);
   watchQuality(stepQualityDown);
 }

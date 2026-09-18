@@ -1,14 +1,24 @@
-/* ————— living world — interface lab 01 ————— */
+/* ————— living world · lab 03 ————— */
 
 :root {
-  --lw-bg: #2b3122;
-  --lw-ink: #e8ecd8;
+  /* shared chrome tokens: glass pills on olive, bone ink, a warm sky accent */
+  --lab-bg: #546943;
+  --lab-ink: #e8ecd8;
+  --lab-mute: rgba(232, 236, 216, 0.72);
+  --lab-accent: #f0c46a;
+  --lab-hairline: rgba(232, 236, 216, 0.18);
+  --lab-glass: rgba(18, 22, 13, 0.55);
+  --lab-text-shadow: 0 1px 2px rgba(10, 13, 7, 0.45);
+
+  --lw-ink: var(--lab-ink);
   --lw-dim: rgba(232, 236, 216, 0.72);
-  --lw-faint: rgba(232, 236, 216, 0.48);
+  --lw-faint: rgba(232, 236, 216, 0.62);
   --lw-line: rgba(232, 236, 216, 0.16);
   --lw-glass: rgba(18, 22, 13, 0.55);
   --lw-card-ink: #232917;
-  --lw-font: 'General Sans', system-ui, -apple-system, sans-serif;
+  --lw-font-ui: 'JetBrains Mono', 'JetBrains Mono Fallback', ui-monospace, Menlo, monospace;
+  --lw-font-display: 'Instrument Serif', 'Instrument Serif Fallback', Georgia, serif;
+  --lw-font-sans: 'Switzer', 'Switzer Fallback', system-ui, sans-serif;
 }
 
 * {
@@ -18,9 +28,9 @@
 }
 
 body {
-  background: var(--lw-bg);
+  background: var(--lab-bg);
   color: var(--lw-ink);
-  font-family: var(--lw-font);
+  font-family: var(--lw-font-sans);
   overflow: hidden;
   height: 100vh;
   height: 100dvh;
@@ -31,6 +41,17 @@ button {
   font-family: inherit;
 }
 
+/* mono labels share the chrome's measure */
+.lw-label {
+  font-family: var(--lw-font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
 #lw-gl {
   position: fixed;
   inset: 0;
@@ -39,105 +60,46 @@ button {
   display: block;
 }
 
-/* ————— vignette overlay ————— */
+/* ————— first paint: nothing animated paints before the scene is ready ————— */
 
-.lw-vignette {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 20;
-  background: radial-gradient(ellipse at center, transparent 58%, rgba(18, 22, 13, 0.38) 100%);
+html.js #lw-gl {
+  opacity: 0;
+  transition: opacity 600ms ease-out;
 }
 
-/* ————— cursor ring ————— */
-
-.lw-cursor {
-  position: fixed;
-  top: -14px;
-  left: -14px;
-  width: 28px;
-  height: 28px;
-  border: 1.5px solid rgba(232, 236, 216, 0.65);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 60;
-  will-change: transform;
+html.js.lw-live #lw-gl {
+  opacity: 1;
 }
 
-/* ————— pill nav ————— */
-
-.lw-nav {
-  position: fixed;
-  top: 1.4rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem;
-  background: var(--lw-glass);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--lw-line);
-  border-radius: 999px;
+html.js:not(.lw-in) [data-lw-ui] {
+  opacity: 0;
 }
 
-.lw-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 1.1rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--lw-dim);
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color 0.3s ease, background 0.3s ease;
-}
+/* ————— chrome skin ————— */
 
-.lw-pill svg {
-  width: 13px;
-  height: 13px;
-}
-
-.lw-pill-brand {
+.lc[data-skin~='lw'] .lc-home {
   background: var(--lw-ink);
+  border-color: transparent;
   color: var(--lw-card-ink);
-  font-weight: 600;
 }
 
-.lw-pill-brand:hover {
-  color: var(--lw-card-ink);
+.lc[data-skin~='lw'] .lc-home:hover {
   background: #f4f7e9;
+  color: var(--lw-card-ink);
 }
 
 /* ————— design note ————— */
 
-.lw-note-btn {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.lw-note-btn:hover {
-  color: var(--lw-ink);
-}
-
 .lw-note-panel {
   position: fixed;
-  top: 5.6rem;
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(var(--lab-inset) + 96px);
+  right: var(--lab-inset);
   z-index: 45;
-  width: min(640px, calc(100vw - 2rem));
-  max-height: calc(100vh - 7rem);
+  width: min(560px, calc(100vw - 2 * var(--lab-inset)));
+  max-height: calc(100vh - var(--lab-inset) - 120px);
   overflow-y: auto;
-  padding: 1.75rem 1.9rem 1.6rem;
-  background: rgba(18, 22, 13, 0.82);
+  padding: 1.6rem 1.75rem 1.5rem;
+  background: rgba(18, 22, 13, 0.84);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--lw-line);
@@ -145,18 +107,14 @@ button {
 }
 
 .lw-note-panel h2 {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
   color: var(--lw-faint);
   margin-bottom: 0.9rem;
 }
 
 .lw-note-panel p {
-  font-size: 0.86rem;
+  font-size: 0.9rem;
   font-weight: 400;
-  line-height: 1.65;
+  line-height: 1.6;
   color: var(--lw-dim);
 }
 
@@ -174,7 +132,7 @@ button {
 }
 
 .lw-note-panel code {
-  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+  font-family: var(--lw-font-ui);
   font-size: 0.74rem;
   line-height: 1.6;
   color: var(--lw-ink);
@@ -188,15 +146,17 @@ button {
   top: 50%;
   transform: translateY(-58%);
   z-index: 30;
-  max-width: 600px;
+  max-width: 640px;
 }
 
 .lw-hero h1 {
-  font-size: clamp(2.9rem, 6vw, 5.4rem);
-  font-weight: 300;
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  margin-bottom: 1.4rem;
+  font-family: var(--lw-font-display);
+  font-size: clamp(3.4rem, 7vw, 6.4rem);
+  font-weight: 400;
+  line-height: 0.96;
+  letter-spacing: -0.015em;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 2px 18px rgba(10, 13, 7, 0.18);
 }
 
 .lw-explore {
@@ -211,11 +171,7 @@ button {
   -webkit-backdrop-filter: blur(10px);
   color: var(--lw-ink);
   border-radius: 999px;
-  padding: 0.8rem 1.5rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  padding: 0.85rem 1.4rem;
   cursor: pointer;
   transition: background 0.3s ease, border-color 0.3s ease;
 }
@@ -241,6 +197,10 @@ button {
 .lw-explore:hover {
   background: rgba(60, 74, 40, 0.65);
   border-color: rgba(232, 236, 216, 0.35);
+}
+
+.lw-explore:disabled {
+  cursor: default;
 }
 
 .lw-explore svg {
@@ -308,36 +268,34 @@ button {
 
 .lw-note {
   position: fixed;
-  bottom: 1.1rem;
+  bottom: calc(var(--lab-inset) + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
+  font-size: 0.74rem;
+  text-transform: none;
+  letter-spacing: 0.04em;
   color: var(--lw-faint);
+  text-shadow: var(--lab-text-shadow);
   white-space: nowrap;
 }
 
 /* ————— responsive ————— */
 
 @media (max-width: 860px) {
-  .lw-nav {
-    top: 0.9rem;
-  }
-
   .lw-hero {
-    top: 6.5rem;
+    top: 7rem;
     transform: none;
     right: 1.5rem;
   }
 
   .lw-hero h1 {
-    font-size: clamp(2.4rem, 11vw, 3.4rem);
+    font-size: clamp(2.8rem, 12.5vw, 4rem);
   }
 
   .lw-play {
     left: 1.25rem;
-    bottom: 1.25rem;
+    bottom: 5.5rem;
     width: 56px;
     height: 56px;
   }
@@ -347,33 +305,29 @@ button {
   }
 
   .lw-note-panel {
-    top: 4.8rem;
-    max-height: calc(100vh - 6rem);
+    top: calc(var(--lab-inset) + 88px);
+    left: var(--lab-inset);
+    right: var(--lab-inset);
+    width: auto;
+    max-height: calc(100vh - var(--lab-inset) - 150px);
+  }
+}
+
+/* ————— forced colours ————— */
+
+@media (forced-colors: active) {
+  .lw-explore,
+  .lw-play,
+  .lw-note-panel {
+    border: 1px solid;
   }
 }
 
 /* ————— reduced motion ————— */
 
-@media (prefers-reduced-motion: no-preference) {
-  .lw-note-panel {
-    animation: lw-note-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-}
-
-@keyframes lw-note-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
+  #lw-gl,
   .lw-explore,
-  .lw-pill,
   .lw-play {
     transition: none;
   }

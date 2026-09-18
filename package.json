@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "serve -l tcp://0.0.0.0:${PORT:-3000} dist"
+    "start": "serve -l tcp://0.0.0.0:${PORT:-3000} dist",
+    "shots": "node tools/shot.mjs",
+    "typecheck": "tsc --noEmit",
+    "probe": "node tools/probe.mjs"
   },
   "devDependencies": {
     "@types/three": "^0.185.4",

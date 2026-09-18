@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Nothing here · Adam Roch</title>
+    <meta name="robots" content="noindex" />
+    <script>(function(h){var c=h.classList;c.add('js');var m=null;try{m=localStorage.getItem('adam-motion')}catch(e){}if(m?m==='reduced':matchMedia('(prefers-reduced-motion:reduce)').matches)c.add('reduced');if(navigator.maxTouchPoints>0)c.add('touch');setTimeout(function(){if(!/gl-ready|nogl/.test(h.className))c.add('nogl')},3500)})(document.documentElement)</script>
+    <style>
+      @view-transition{navigation:auto}
+      html{background:#0b0a09;color:#f2ede4;color-scheme:dark}
+      body{margin:0;background:#0b0a09}
+      #lens{position:fixed;inset:0;z-index:0;display:block;width:100%;height:100%;opacity:0;pointer-events:none}
+      html.js.gl-ready #lens{opacity:1;transition:opacity 900ms cubic-bezier(.16,1,.3,1)}
+      html.reduced.gl-ready #lens{transition-duration:200ms}
+      html:not(.js) #lens,html.nogl #lens{display:none}
+      .nogl-ring{display:none}
+      html:not(.js) .nogl-ring,html.nogl .nogl-ring{display:block}
+      html.js:not(.reduced) .reveal{clip-path:inset(0 0 100% 0);animation:reveal-safety 0s 1.4s forwards}
+      html.js:not(.reduced) .reveal.is-split{clip-path:none;animation:none}
+      @keyframes reveal-safety{to{clip-path:none}}
+    </style>
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/Switzer-Variable.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/InstrumentSerif-Italic.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/JetBrainsMono-Variable.woff2" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <meta name="theme-color" content="#0b0a09" />
+    <meta name="description" content="There’s nothing here. Not even light." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+  </head>
+  <body data-page="404">
+    <a class="skip" href="#doors">Skip to the doors</a>
+    <canvas id="lens" aria-hidden="true"></canvas>
+
+    <header class="bar">
+      <nav class="bar-nav" aria-label="Site">
+        <a class="pill pill-line pill-sm wordmark" href="/">Adam Roch</a>
+        <p class="clock">AUSTIN, TX<span data-clock></span></p>
+        <a class="pill pill-solid" href="/#contact" data-open="message-modal">Say hello</a>
+      </nav>
+    </header>
+
+    <main id="top" tabindex="-1">
+      <section class="hero-404" aria-labelledby="nf-title">
+        <svg class="nogl-ring nogl-ring-404" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="#f0722e" stroke-opacity=".25" stroke-width="8" vector-effect="non-scaling-stroke"/><circle cx="50" cy="50" r="46" fill="none" stroke="#f2ede4" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+        <p class="eyebrow">404 · NO SUCH PAGE</p>
+        <h1 class="statement-lg reveal" id="nf-title">There’s nothing here.<br /> Not even <em class="accent" data-anchor="hero">light</em>.</h1>
+        <p class="hero-note">The page you wanted moved, or never existed. Both happen a lot on this domain.</p>
+        <p class="mono"><a class="back" href="/">← BACK TO THE SURFACE</a></p>
+        <ul class="doors" id="doors" aria-label="The five doors" tabindex="-1">
+          <li><a href="/lab/event-horizon/">01 EVENT HORIZON ↗</a></li>
+          <li><a href="/lab/sonic-terrain/">02 SONIC TERRAIN ↗</a></li>
+          <li><a href="/lab/living-world/">03 LIVING WORLD ↗</a></li>
+          <li><a href="/lab/walkthrough/">04 WALKTHROUGH ↗</a></li>
+          <li><a href="/lab/broadsheet/">05 BROADSHEET ↗</a></li>
+        </ul>
+      </section>
+    </main>
+
+    <dialog class="sheet" id="message-modal" aria-labelledby="message-modal-title">
+      <div class="sheet-inner">
+        <button class="sheet-close" type="button" data-close aria-label="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        <p class="eyebrow">MESSAGE</p>
+        <h2 class="sheet-title" id="message-modal-title">Send me a message.</h2>
+        <p class="sheet-sub">Lands straight in my inbox. I read everything.</p>
+        <form class="sheet-form" data-form="message" action="https://formspree.io/f/mppaypyb" method="POST">
+          <div class="field">
+            <label for="msg-email">EMAIL</label>
+            <input id="msg-email" type="email" name="email" required autocomplete="email" inputmode="email" autofocus aria-describedby="msg-email-error" />
+            <p class="field-error" id="msg-email-error" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="msg-body">MESSAGE</label>
+            <textarea id="msg-body" name="message" required rows="5" aria-describedby="msg-body-error"></textarea>
+            <p class="field-error" id="msg-body-error" role="alert"></p>
+          </div>
+          <button class="pill pill-solid" type="submit">Send</button>
+        </form>
+        <p class="form-status" aria-live="polite" tabindex="-1"></p>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

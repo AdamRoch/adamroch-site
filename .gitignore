@@ -8,3 +8,12 @@ dist
 
 # design reference recordings stay local
 /videos/
+
+# local screenshot scratch from verification runs
+/.tmp/
+
+# design references stay local: third-party and ripped-asset provenance, not ours to publish
+/inspo-references/
+
+# editor/tool local config
+/.kimi-code/
