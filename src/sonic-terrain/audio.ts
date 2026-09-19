@@ -11,6 +11,8 @@ let droneNodes: OscillatorNode[] = [];
 let droneFilter: BiquadFilterNode | null = null;
 let droneLfo: OscillatorNode | null = null;
 let noiseSource: AudioBufferSourceNode | null = null;
+let pulseTimer: ReturnType<typeof setTimeout> | null = null;
+let clickBuffer: AudioBuffer | null = null;
 let micStream: MediaStream | null = null;
 let micSource: MediaStreamAudioSourceNode | null = null;
 let state: SoundState = 'off';
@@ -23,9 +25,100 @@ function ensureContext(): AudioContext {
   analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.82;
+  // The analyser is a TAP, not a link in the output chain. It used to sit between master and the
+  // speakers, and AnalyserNode is a pass-through node, so startMic()'s micSource.connect(analyser)
+  // was routing the microphone straight back out: mic -> analyser -> destination. Verified with an
+  // OfflineAudioContext A/B (osc -> analyser -> destination renders peak 1.0; the same graph with
+  // the analyser left unconnected renders 0.0). echoCancellation hid it on a laptop; it was never a
+  // guarantee. Now master goes to the speakers directly and everything that is only being measured
+  // ends at a zero gain, which also keeps the analyser reachable from the destination so the graph
+  // is guaranteed to pull it.
+  master.connect(ctx.destination);
   master.connect(analyser);
-  analyser.connect(ctx.destination);
+  const silent = ctx.createGain();
+  silent.gain.value = 0;
+  analyser.connect(silent);
+  silent.connect(ctx.destination);
   return ctx;
+}
+
+/* ————— the heartbeat ————— */
+// The drone was a smooth wash with nothing in it for an onset detector to find, so the terrain
+// undulated and never punched. This is the smallest thing that gives it events without turning
+// dark ambient into a rhythm section: a slow lub-dub, one sub thump and one quiet broadband
+// click, every 2.6 seconds. The click matters visually — it lights the whole frequency axis at
+// once, so the beat crosses the terrain rather than only lifting the bass end.
+
+const BEAT_SECONDS = 2.6;
+
+function thump(ac: AudioContext, at: number, level: number): void {
+  const osc = ac.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(68, at);
+  osc.frequency.exponentialRampToValueAtTime(36, at + 0.5);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(level, at + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.85);
+  osc.connect(g);
+  g.connect(master!);
+  osc.start(at);
+  osc.stop(at + 0.95);
+}
+
+function click(ac: AudioContext, at: number, level: number): void {
+  if (!clickBuffer) {
+    clickBuffer = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.12), ac.sampleRate);
+    const d = clickBuffer.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  }
+  const src = ac.createBufferSource();
+  src.buffer = clickBuffer;
+  const hp = ac.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 1800;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(level, at);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.11);
+  src.connect(hp);
+  hp.connect(g);
+  g.connect(master!);
+  src.start(at);
+}
+
+// Look-ahead on the audio clock, not the wall clock. The beat used to play at whatever
+// ctx.currentTime happened to be when a 2.6 s setTimeout fired, which drifts under main-thread
+// jank (this page uploads a third of a megabyte of geometry every frame on that thread) and
+// collapses in a background tab, where Chrome clamps timers to a second and then to a minute.
+// A 200 ms poll that schedules every beat due in the next half second keeps the spacing exact no
+// matter how late the timer is; the resync line stops a tab that was hidden for five minutes from
+// firing every missed beat at once on return.
+let nextBeat = 0;
+
+function tickPulse(): void {
+  if (!ctx || !master) return;
+  const ac = ctx;
+  if (nextBeat < ac.currentTime) nextBeat = ac.currentTime + 0.05;
+  while (nextBeat < ac.currentTime + 0.5) {
+    thump(ac, nextBeat, 0.26);
+    click(ac, nextBeat + 0.004, 0.05);
+    thump(ac, nextBeat + 0.33, 0.13); // the dub
+    nextBeat += BEAT_SECONDS;
+  }
+  pulseTimer = setTimeout(tickPulse, 200);
+}
+
+function schedulePulse(): void {
+  if (!ctx) return;
+  nextBeat = ctx.currentTime + 0.05;
+  tickPulse();
+}
+
+function stopPulse(): void {
+  if (pulseTimer !== null) {
+    clearTimeout(pulseTimer);
+    pulseTimer = null;
+  }
 }
 
 /* ————— the drone: detuned sines through a slow-wobbling lowpass + noise wash ————— */
@@ -87,9 +180,12 @@ function startDrone(): void {
   bp.connect(ng);
   ng.connect(droneFilter);
   noiseSource.start();
+
+  schedulePulse();
 }
 
 function stopDrone(): void {
+  stopPulse();
   droneNodes.forEach((o) => {
     try { o.stop(); } catch { /* already stopped */ }
     o.disconnect();
@@ -119,7 +215,8 @@ async function startMic(): Promise<void> {
     audio: { echoCancellation: true, noiseSuppression: true },
   });
   micSource = ac.createMediaStreamSource(micStream);
-  // analysis only — never routed to master, or the speakers feed back
+  // analysis only: the analyser's own output ends at a zero gain (see ensureContext), so this is
+  // genuinely a measurement tap and nothing the microphone hears can reach the speakers
   micSource.connect(analyser!);
 }
 

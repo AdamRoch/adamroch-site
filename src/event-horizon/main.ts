@@ -19,7 +19,7 @@ loader.set(0.04, 'fetching three');
 async function start(): Promise<void> {
   try {
     const { boot } = await import('./scene');
-    loader.set(0.3, 'baking code sheet');
+    loader.set(0.3, 'building the rig');
     await boot({ chrome, loader });
   } catch (err) {
     // no WebGL or a broken shader: lift the curtain so the page is still a page

@@ -21,7 +21,7 @@
 // Both modes take --w --h --dpr --mobile --reduced --wait like tools/shot.mjs.
 // Exports decodePNG(), launch() and screenshot() for ad-hoc scripts.
 
-import { spawn } from 'node:child_process';
+import { spawnChrome } from './chrome-process.mjs';
 import { inflateSync } from 'node:zlib';
 import { pathToFileURL } from 'node:url';
 
@@ -111,66 +111,71 @@ export async function launch({ W = 1600, H = 1000, DPR = 1, mobile = false, redu
     'about:blank',
   ];
   if (reduced) args.unshift('--force-prefers-reduced-motion');
-  const chrome = spawn(CHROME, args);
-  const wsUrl = await new Promise((resolve, reject) => {
-    let buf = '';
-    chrome.stderr.on('data', (d) => {
-      buf += d;
-      const m = buf.match(/DevTools listening on (ws:\/\/\S+)/);
-      if (m) resolve(m[1]);
+  const chrome = spawnChrome(CHROME, args);
+  try {
+    const wsUrl = await new Promise((resolve, reject) => {
+      let buf = '';
+      chrome.stderr.on('data', (d) => {
+        buf += d;
+        const m = buf.match(/DevTools listening on (ws:\/\/\S+)/);
+        if (m) resolve(m[1]);
+      });
+      setTimeout(() => reject(new Error('no devtools ws')), 15000);
     });
-    setTimeout(() => reject(new Error('no devtools ws')), 15000);
-  });
-  const httpBase = wsUrl.replace('ws://', 'http://').replace(/\/devtools\/.*$/, '');
-  let target = null;
-  for (let i = 0; i < 30 && !target; i++) {
-    const list = await (await fetch(`${httpBase}/json`)).json();
-    target = list.find((t) => t.type === 'page');
-    if (!target) await new Promise((r) => setTimeout(r, 250));
-  }
-  if (!target) throw new Error('no page target');
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((r) => (ws.onopen = r));
-  let msgId = 0;
-  const pending = new Map();
-  const events = [];
-  const consoleLines = [];
-  ws.onmessage = (e) => {
-    const m = JSON.parse(e.data);
-    if (m.id && pending.has(m.id)) {
-      pending.get(m.id)(m);
-      pending.delete(m.id);
-    } else if (m.method) {
-      events.push(m.method);
-      if (m.method === 'Runtime.consoleAPICalled' || m.method === 'Runtime.exceptionThrown') {
-        consoleLines.push(JSON.stringify(m.params).slice(0, 300));
-      }
+    const httpBase = wsUrl.replace('ws://', 'http://').replace(/\/devtools\/.*$/, '');
+    let target = null;
+    for (let i = 0; i < 30 && !target; i++) {
+      const list = await (await fetch(`${httpBase}/json`)).json();
+      target = list.find((t) => t.type === 'page');
+      if (!target) await new Promise((r) => setTimeout(r, 250));
     }
-  };
-  const send = (method, params = {}) => {
-    const id = ++msgId;
-    ws.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolve) => pending.set(id, resolve));
-  };
-  await send('Page.enable');
-  await send('Runtime.enable');
-  await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: DPR, mobile });
-  if (mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true });
-  const evaluate = async (expression) => {
-    const res = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
-    if (res.result?.exceptionDetails) throw new Error(JSON.stringify(res.result.exceptionDetails).slice(0, 500));
-    return res.result?.result?.value;
-  };
-  const goto = async (url, wait) => {
-    await send('Page.navigate', { url });
-    for (let i = 0; i < 80 && !events.includes('Page.loadEventFired'); i++) await new Promise((r) => setTimeout(r, 250));
-    await new Promise((r) => setTimeout(r, wait));
-  };
-  const close = () => {
-    ws.close();
-    chrome.kill();
-  };
-  return { send, evaluate, goto, close, consoleLines, W, H, DPR };
+    if (!target) throw new Error('no page target');
+    const ws = new WebSocket(target.webSocketDebuggerUrl);
+    await new Promise((r) => (ws.onopen = r));
+    let msgId = 0;
+    const pending = new Map();
+    const events = [];
+    const consoleLines = [];
+    ws.onmessage = (e) => {
+      const m = JSON.parse(e.data);
+      if (m.id && pending.has(m.id)) {
+        pending.get(m.id)(m);
+        pending.delete(m.id);
+      } else if (m.method) {
+        events.push(m.method);
+        if (m.method === 'Runtime.consoleAPICalled' || m.method === 'Runtime.exceptionThrown') {
+          consoleLines.push(JSON.stringify(m.params).slice(0, 300));
+        }
+      }
+    };
+    const send = (method, params = {}) => {
+      const id = ++msgId;
+      ws.send(JSON.stringify({ id, method, params }));
+      return new Promise((resolve) => pending.set(id, resolve));
+    };
+    await send('Page.enable');
+    await send('Runtime.enable');
+    await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: DPR, mobile });
+    if (mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true });
+    const evaluate = async (expression) => {
+      const res = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+      if (res.result?.exceptionDetails) throw new Error(JSON.stringify(res.result.exceptionDetails).slice(0, 500));
+      return res.result?.result?.value;
+    };
+    const goto = async (url, wait) => {
+      await send('Page.navigate', { url });
+      for (let i = 0; i < 80 && !events.includes('Page.loadEventFired'); i++) await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, wait));
+    };
+    const close = () => {
+      ws.close();
+      return chrome.close();
+    };
+    return { send, evaluate, goto, close, consoleLines, W, H, DPR };
+  } catch (error) {
+    await chrome.close();
+    throw error;
+  }
 }
 
 export async function screenshot(page) {
@@ -216,45 +221,49 @@ const view = {
 async function ground() {
   const url = positional[0] ?? `${HARNESS}?band=0&lock=1&text=0&arrive=0`;
   const page = await launch(view);
-  await page.goto(url, Number(flags.wait ?? 2500));
-  let expect = flags.expect;
-  if (!expect) {
-    const rgba = await page.evaluate(
-      `(() => { const v = getComputedStyle(document.documentElement).getPropertyValue('--ground').trim(); return v ? ${RESOLVE}(v) : null; })()`
-    );
-    expect = rgba ? hex(rgba[0], rgba[1], rgba[2]) : '#0b0a09';
-  }
-  const fx = Number(flags.x ?? 0.5);
-  const fy = Number(flags.y ?? 0.96);
-  const cx = fx <= 1 ? fx * page.W : fx;
-  const cy = fy <= 1 ? fy * page.H : fy;
-  const patch = Number(flags.patch ?? 32);
-  const img = await screenshot(page);
-  page.close();
-  const chans = [[], [], []];
-  const x0 = Math.max(0, Math.round((cx - patch / 2) * page.DPR));
-  const y0 = Math.max(0, Math.round((cy - patch / 2) * page.DPR));
-  const x1 = Math.min(img.width, Math.round((cx + patch / 2) * page.DPR));
-  const y1 = Math.min(img.height, Math.round((cy + patch / 2) * page.DPR));
-  for (let y = y0; y < y1; y++)
-    for (let x = x0; x < x1; x++) {
-      const o = (y * img.width + x) * 4;
-      chans[0].push(img.data[o]);
-      chans[1].push(img.data[o + 1]);
-      chans[2].push(img.data[o + 2]);
+  try {
+    await page.goto(url, Number(flags.wait ?? 2500));
+    let expect = flags.expect;
+    if (!expect) {
+      const rgba = await page.evaluate(
+        `(() => { const v = getComputedStyle(document.documentElement).getPropertyValue('--ground').trim(); return v ? ${RESOLVE}(v) : null; })()`
+      );
+      expect = rgba ? hex(rgba[0], rgba[1], rgba[2]) : '#0b0a09';
     }
-  const median = (a) => a.sort((p, q) => p - q)[a.length >> 1];
-  const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
-  const med = chans.map(median);
-  const avg = chans.map(mean);
-  const want = expect.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
-  const diff = med.map((v, i) => Math.abs(v - want[i]));
-  const ok = Math.max(...diff) <= 1;
-  console.log(
-    `ground: measured ${hex(...med)} (median of ${x1 - x0}x${y1 - y0} device px at css ${Math.round(cx)},${Math.round(cy)}; mean ${hex(...avg)}) expected ${expect} → ${ok ? 'PASS' : 'FAIL'} (max channel diff ${Math.max(...diff)})`
-  );
-  if (page.consoleLines.length) console.log('console:', page.consoleLines.join('\n'));
-  process.exit(ok ? 0 : 1);
+    const fx = Number(flags.x ?? 0.5);
+    const fy = Number(flags.y ?? 0.96);
+    const cx = fx <= 1 ? fx * page.W : fx;
+    const cy = fy <= 1 ? fy * page.H : fy;
+    const patch = Number(flags.patch ?? 32);
+    const img = await screenshot(page);
+    await page.close();
+    const chans = [[], [], []];
+    const x0 = Math.max(0, Math.round((cx - patch / 2) * page.DPR));
+    const y0 = Math.max(0, Math.round((cy - patch / 2) * page.DPR));
+    const x1 = Math.min(img.width, Math.round((cx + patch / 2) * page.DPR));
+    const y1 = Math.min(img.height, Math.round((cy + patch / 2) * page.DPR));
+    for (let y = y0; y < y1; y++)
+      for (let x = x0; x < x1; x++) {
+        const o = (y * img.width + x) * 4;
+        chans[0].push(img.data[o]);
+        chans[1].push(img.data[o + 1]);
+        chans[2].push(img.data[o + 2]);
+      }
+    const median = (a) => a.sort((p, q) => p - q)[a.length >> 1];
+    const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+    const med = chans.map(median);
+    const avg = chans.map(mean);
+    const want = expect.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    const diff = med.map((v, i) => Math.abs(v - want[i]));
+    const ok = Math.max(...diff) <= 1;
+    console.log(
+      `ground: measured ${hex(...med)} (median of ${x1 - x0}x${y1 - y0} device px at css ${Math.round(cx)},${Math.round(cy)}; mean ${hex(...avg)}) expected ${expect} → ${ok ? 'PASS' : 'FAIL'} (max channel diff ${Math.max(...diff)})`
+    );
+    if (page.consoleLines.length) console.log('console:', page.consoleLines.join('\n'));
+    return ok ? 0 : 1;
+  } finally {
+    await page.close();
+  }
 }
 
 /* ————— --contrast ————— */
@@ -322,78 +331,83 @@ async function contrastMode() {
   const min = Number(flags.min ?? 4.5);
   const settle = Number(flags.settle ?? 900);
   const page = await launch(view);
-  await page.goto(url, Number(flags.wait ?? 3500));
-  let scrolls;
-  if (flags.scrolls === 'anchors') {
-    scrolls = await page.evaluate('(window.__lens ? window.__lens.path.knots.map((k) => Math.round(k.s)) : null)');
-    if (!scrolls) {
-      console.error('--scrolls=anchors needs window.__lens (dev build of the homepage)');
-      process.exit(1);
-    }
-    console.log('anchors:', scrolls.join(', '));
-  } else scrolls = String(flags.scrolls ?? '0').split(',').map(Number);
-  const rows = [];
-  for (const sy of scrolls) {
-    await page.evaluate(`window.scrollTo({ top: ${sy}, behavior: 'instant' }); true`);
-    await new Promise((r) => setTimeout(r, settle));
-    const boxes = await page.evaluate(`${COLLECT}(${JSON.stringify(sel)})`);
-    await page.evaluate(HIDE_TEXT);
-    await new Promise((r) => setTimeout(r, 120));
-    const img = await screenshot(page);
-    await page.evaluate(SHOW_TEXT);
-    for (const b of boxes) {
-      const [tr, tg, tb, ta] = b.color;
-      const alpha = ta / 255;
-      const samples = [];
-      let sumL = 0;
-      for (const r of b.rects) {
-        const x0 = Math.max(0, Math.floor(r.x * page.DPR));
-        const y0 = Math.max(0, Math.floor(r.y * page.DPR));
-        const x1 = Math.min(img.width, Math.ceil((r.x + r.w) * page.DPR));
-        const y1 = Math.min(img.height, Math.ceil((r.y + r.h) * page.DPR));
-        const step = Math.max(1, Math.floor(Math.sqrt(((x1 - x0) * (y1 - y0)) / 40000)));
-        for (let y = y0; y < y1; y += step)
-          for (let x = x0; x < x1; x += step) {
-            const o = (y * img.width + x) * 4;
-            samples.push([img.data[o], img.data[o + 1], img.data[o + 2]]);
-          }
+  try {
+    await page.goto(url, Number(flags.wait ?? 3500));
+    let scrolls;
+    if (flags.scrolls === 'anchors') {
+      scrolls = await page.evaluate('(window.__lens ? window.__lens.path.knots.map((k) => Math.round(k.s)) : null)');
+      if (!scrolls) {
+        console.error('--scrolls=anchors needs window.__lens (dev build of the homepage)');
+        await page.close();
+        return 1;
       }
-      if (!samples.length) continue;
-      const mean = [0, 0, 0];
-      for (const s of samples) {
-        mean[0] += s[0];
-        mean[1] += s[1];
-        mean[2] += s[2];
+      console.log('anchors:', scrolls.join(', '));
+    } else scrolls = String(flags.scrolls ?? '0').split(',').map(Number);
+    const rows = [];
+    for (const sy of scrolls) {
+      await page.evaluate(`window.scrollTo({ top: ${sy}, behavior: 'instant' }); true`);
+      await new Promise((r) => setTimeout(r, settle));
+      const boxes = await page.evaluate(`${COLLECT}(${JSON.stringify(sel)})`);
+      await page.evaluate(HIDE_TEXT);
+      await new Promise((r) => setTimeout(r, 120));
+      const img = await screenshot(page);
+      await page.evaluate(SHOW_TEXT);
+      for (const b of boxes) {
+        const [tr, tg, tb, ta] = b.color;
+        const alpha = ta / 255;
+        const samples = [];
+        let sumL = 0;
+        for (const r of b.rects) {
+          const x0 = Math.max(0, Math.floor(r.x * page.DPR));
+          const y0 = Math.max(0, Math.floor(r.y * page.DPR));
+          const x1 = Math.min(img.width, Math.ceil((r.x + r.w) * page.DPR));
+          const y1 = Math.min(img.height, Math.ceil((r.y + r.h) * page.DPR));
+          const step = Math.max(1, Math.floor(Math.sqrt(((x1 - x0) * (y1 - y0)) / 40000)));
+          for (let y = y0; y < y1; y += step)
+            for (let x = x0; x < x1; x += step) {
+              const o = (y * img.width + x) * 4;
+              samples.push([img.data[o], img.data[o + 1], img.data[o + 2]]);
+            }
+        }
+        if (!samples.length) continue;
+        const mean = [0, 0, 0];
+        for (const s of samples) {
+          mean[0] += s[0];
+          mean[1] += s[1];
+          mean[2] += s[2];
+        }
+        mean.forEach((v, i) => (mean[i] = v / samples.length));
+        // text with alpha is composited over the mean background before its luminance is taken
+        const text = alpha < 1 ? [tr, tg, tb].map((c, i) => c * alpha + mean[i] * (1 - alpha)) : [tr, tg, tb];
+        const tl = lum(...text);
+        const per = samples.map((s) => contrast(tl, lum(...s))).sort((p, q) => p - q);
+        for (const s of samples) sumL += lum(...s);
+        const avg = contrast(tl, sumL / samples.length);
+        const p5 = per[Math.floor(per.length * 0.05)];
+        const large = b.size >= 24 || (b.size >= 18.66 && b.bold);
+        const threshold = flags.large && large ? 3 : min;
+        rows.push({ scroll: sy, label: b.label, text: b.text, color: hex(tr, tg, tb), bg: hex(...mean), avg, p5, threshold, pass: p5 >= threshold });
       }
-      mean.forEach((v, i) => (mean[i] = v / samples.length));
-      // text with alpha is composited over the mean background before its luminance is taken
-      const text = alpha < 1 ? [tr, tg, tb].map((c, i) => c * alpha + mean[i] * (1 - alpha)) : [tr, tg, tb];
-      const tl = lum(...text);
-      const per = samples.map((s) => contrast(tl, lum(...s))).sort((p, q) => p - q);
-      for (const s of samples) sumL += lum(...s);
-      const avg = contrast(tl, sumL / samples.length);
-      const p5 = per[Math.floor(per.length * 0.05)];
-      const large = b.size >= 24 || (b.size >= 18.66 && b.bold);
-      const threshold = flags.large && large ? 3 : min;
-      rows.push({ scroll: sy, label: b.label, text: b.text, color: hex(tr, tg, tb), bg: hex(...mean), avg, p5, threshold, pass: p5 >= threshold });
     }
+    await page.close();
+    rows.sort((a, b) => a.p5 - b.p5);
+    for (const r of rows) {
+      console.log(
+        `${r.pass ? 'ok  ' : 'FAIL'} ${r.p5.toFixed(2).padStart(6)}:1 p5  ${r.avg.toFixed(2).padStart(6)}:1 avg  ${r.color} on ~${r.bg}  y=${r.scroll}  ${r.label}  "${r.text}"`
+      );
+    }
+    const fails = rows.filter((r) => !r.pass).length;
+    console.log(`contrast: ${rows.length} text boxes, ${fails} under ${min}:1${flags.large ? ' (3:1 for large text)' : ''} → ${fails ? 'FAIL' : 'PASS'}`);
+    if (page.consoleLines.length) console.log('console:', page.consoleLines.join('\n'));
+    return fails ? 1 : 0;
+  } finally {
+    await page.close();
   }
-  page.close();
-  rows.sort((a, b) => a.p5 - b.p5);
-  for (const r of rows) {
-    console.log(
-      `${r.pass ? 'ok  ' : 'FAIL'} ${r.p5.toFixed(2).padStart(6)}:1 p5  ${r.avg.toFixed(2).padStart(6)}:1 avg  ${r.color} on ~${r.bg}  y=${r.scroll}  ${r.label}  "${r.text}"`
-    );
-  }
-  const fails = rows.filter((r) => !r.pass).length;
-  console.log(`contrast: ${rows.length} text boxes, ${fails} under ${min}:1${flags.large ? ' (3:1 for large text)' : ''} → ${fails ? 'FAIL' : 'PASS'}`);
-  if (page.consoleLines.length) console.log('console:', page.consoleLines.join('\n'));
-  process.exit(fails ? 1 : 0);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  if (flags.ground) await ground();
-  else if (flags.contrast) await contrastMode();
+  if (flags.ground) process.exit(await ground());
+  else if (flags.contrast) process.exit(await contrastMode());
   else {
     console.error('usage: node tools/probe.mjs --ground [url] | --contrast <url> [flags]  (see header)');
     process.exit(1);

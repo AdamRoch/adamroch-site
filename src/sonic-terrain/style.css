@@ -164,6 +164,8 @@ body {
   border: 1px solid var(--ember);
   border-radius: 0;
   padding: 10px 20px;
+  /* the ON label is longer than OFF and used to wrap its closing bracket onto a second line at 390px */
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background-color var(--lab-dur) var(--lab-ease),
@@ -171,7 +173,13 @@ body {
 }
 
 .sound-pill[aria-pressed='true'] {
-  background: rgba(255, 77, 0, 0.14);
+  /* the ember cast sits ON the scrim rather than replacing it. Dropping the opaque layer let the
+     reflection's mesh run straight through the letterforms once the floor went in: the median
+     background stayed dark so a single-frame contrast probe passed, but the frames where a line
+     crossed a glyph measured 1.0:1. The gradient is a paint layer, so this is still one declaration. */
+  background:
+    linear-gradient(rgba(255, 77, 0, 0.14), rgba(255, 77, 0, 0.14)),
+    rgba(11, 11, 13, 0.9);
 }
 
 .sound-pill:hover {
@@ -191,7 +199,9 @@ body {
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(234, 230, 220, 0.5);
+  /* 0.5 before the reflection went in: the floor now puts a faint warm glow behind this line and
+     it measured 4.08:1, under the 4.5:1 floor. Still discreet, now legible. */
+  color: rgba(234, 230, 220, 0.64);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -253,6 +263,9 @@ body {
 
   .sound-pill {
     bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+    /* nowrap needs the room: the ON label is 18 characters at 0.16em tracking */
+    padding: 10px 14px;
+    letter-spacing: 0.13em;
   }
 
   .hint {
@@ -264,6 +277,15 @@ body {
     top: calc(var(--lab-inset) + 80px);
     max-height: calc(100vh - 2 * var(--lab-inset) - 80px);
     padding: 18px 20px 16px;
+  }
+
+  /* A phone gives the code block about 43 characters and the shortest of these lines is 46, so
+     overflow-x meant every block ended mid-token with the rest behind a sideways scroll nobody
+     finds. Wrapping is the lesser evil at this width: the line breaks look like code that was
+     wrapped, not like code that was cut. Desktop keeps the scroll, where nothing needs it. */
+  .st-note-panel pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 }
 

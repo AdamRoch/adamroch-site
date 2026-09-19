@@ -36,23 +36,52 @@
           The terrain is a line-mesh grid: 96 frequency bins across, 160 rows of scrolling history
           receding to the horizon. Each animation frame reads the AnalyserNode (2048-point FFT), maps
           bins on a log-ish curve so the bass band stays wide the way the ear hears it, applies
-          attack-fast / release-slow smoothing, and pushes a new row onto the ring buffer.
+          attack-fast / release-slow smoothing, and pushes a new row onto the ring buffer. The
+          newest row sits about a metre and a half from the lens, so the first dozen rows dissolve
+          in rather than arriving: otherwise the sheet's cut edge fills the near corner as a flat
+          plate, and this way the present comes out of the dark instead.
         </p>
-        <pre><code>// history recedes: shift everything one row back, write the new frame at row 0
+        <pre><code>// history recedes: shift everything one row back,
+// then write the new frame at row 0
 history.copyWithin(COLS, 0, history.length - COLS);
 history.set(values, 0);</code></pre>
         <p>
+          A second ring rides alongside it holding heat: the per-bin spectral flux, plus whatever
+          you just plucked. Because the heat belongs to the row and not to the near edge, a beat is
+          written once and then travels to the horizon as a shockwave, and a pluck leaves a scar
+          that scrolls away. The same flux, summed across the spectrum and measured against its own
+          slow average, lifts the exposure, swells the bloom and flares the horizon for a moment.
+        </p>
+        <pre><code>// this frame's transient, then it belongs to the row
+const rise = Math.max(0, target - prevRow[c]);
+heatRow[c] = Math.min(1.5, rise * 4.5 + pulse[c] * 1.1);</code></pre>
+        <p>
+          Colour carries the frequency axis: hue is pitch, running from deep ember in the bass
+          through amber and gold to a pale top end, and brightness is loudness, burning to a white
+          core. Underneath, the terrain is mirrored through y = 0 into a dark floor: foreshortened,
+          absorbed with depth, raised to a power so that only the bright ridges come back, and then
+          faded out in screen space so the surface has a far edge. Without that last one the
+          reflection's tallest rows are its nearest ones, so they project furthest down the frame
+          and run off the bottom of it, and a floor with no far limit just reads as a second
+          landscape hanging upside down.
+        </p>
+        <p>
           The sound is pure WebAudio, no samples: a generative dark-ambient drone of detuned sine
-          pairs a fifth apart through a lowpass filter wobbled by a slow LFO, plus a noise wash. Mic
-          mode is analysis-only: the input is never routed to the speakers, so there's no feedback.
-          Dragging across the terrain plucks it: raycast position maps to a minor-pentatonic
-          triangle-oscillator note, so everything you play is in key.
+          pairs a fifth apart through a lowpass filter wobbled by a slow LFO, a noise wash, and a
+          slow lub-dub of sub thump and broadband click every 2.6 seconds, which is what the terrain
+          punches on. Mic mode is analysis-only: the input is never routed to the speakers, so
+          there's no feedback. Dragging across the terrain plucks it: raycast position maps to a
+          minor-pentatonic triangle-oscillator note, so everything you play is in key.
         </p>
         <pre><code>// position across the terrain → pentatonic note over ~2.5 octaves
-const semis = 12 * Math.floor(steps / PENTA.length) + PENTA[steps % PENTA.length];</code></pre>
+const semis = 12 * Math.floor(steps / PENTA.length)
+            + PENTA[steps % PENTA.length];</code></pre>
         <p>
           The lines render in linear HDR, bloom at half resolution, then one final pass tone maps,
-          adds the horizon glow, and lays down grain and dither, sized in device pixels.
+          adds the horizon glow, fades the picture down into its own margins so the terrain ends
+          inside the frame rather than at the edge of it, and lays down grain and dither, sized in
+          device pixels. The exposure is set against the surface's own slow level, so a quiet phase
+          is still quieter than a loud one and is never a frame with nothing in it.
         </p>
       </aside>
     </main>

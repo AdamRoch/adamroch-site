@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="Lab 01: a raymarched black hole in live GLSL. Accretion disk, photon ring, and a sheet of code being gravitationally lensed. By Adam Roch." />
+    <meta name="description" content="Lab 01: a raymarched black hole in live GLSL. A real null geodesic per pixel: accretion disk, relativistic beaming, and an emergent photon ring. By Adam Roch." />
     <meta name="theme-color" content="#0b0b0d" />
     <meta name="color-scheme" content="dark" />
     <title>Event Horizon · Lab 01 · Adam Roch</title>
@@ -19,37 +19,55 @@
   </head>
   <body>
     <main aria-label="Event Horizon">
-      <canvas id="eh-gl" role="img" aria-label="A black hole rendered live: a glowing accretion disk bent around a black shadow with a thin photon ring"></canvas>
+      <canvas id="eh-gl" role="img" aria-label="A black hole rendered live: a glowing accretion disk bent around a black shadow with a thin photon ring. Drag, scroll or use the arrow keys to tilt the view between edge-on and face-on."></canvas>
 
       <header class="headline">
         <h1>Welcome to the lab.</h1>
         <p>Shaders <span class="ember">&amp;</span> WebGL<span class="eh-sep"> · </span><br class="eh-br" />Gravity as a <span class="ember">raw material</span></p>
       </header>
 
+      <p class="eh-hint" id="eh-hint">Drag to tilt <span class="eh-hint-keys">&middot; arrow keys work too</span></p>
+
+      <p class="sr-only" id="eh-live" aria-live="polite"></p>
+
       <aside class="eh-note-panel" id="eh-note-panel" aria-label="Design note: how this page is built" hidden>
         <h2>[ How it's built ]</h2>
         <p>
-          No meshes, no assets: the entire image is one fragment shader. Each pixel fires a ray that
-          gets bent by a simple 1/r² gravitational pull over 64 integration steps. Along the way the
-          march checks three things: capture (the ray falls past the event horizon), crossings of the
-          accretion disk plane, and crossings of a "code sheet" curtain that gets lensed into the
-          hole.
+          No meshes, no assets: the entire image is one fragment shader. Every pixel integrates a
+          real null geodesic. Instead of stepping along a distance and nudging the direction with a
+          1/r² pull, it solves the Schwarzschild orbit equation for u = 1/r and marches in the angle
+          swept around the hole, which costs about the same and is actually right.
         </p>
-        <pre><code>// bend the ray, 64 steps per pixel
-vec3 acc = -1.55 * p / (r2 * r);
-v = normalize(v + acc * dt);</code></pre>
+        <pre><code>// d²u/dφ² = -u + 3M u², velocity verlet, 112 steps of 0.085 rad
+u   += du * DPHI + 0.5 * acc * DPHI * DPHI;
+acc  = -u + 3.0 * MASS * u * u;</code></pre>
         <p>
-          The disk rotates differentially: inner material orbits faster, Kepler-style. The side
-          rotating toward the viewer burns brighter (doppler beaming). The photon ring comes from
-          tracking each ray's closest approach; captured rays leave the shadow pure black. The code
-          glyphs are a monospace canvas texture, the only "texture" in the piece.
+          That one change buys the things the approximation can't: a shadow of exactly 3√3 M across,
+          an unstable photon sphere at 3M, and rays that wind far enough around the hole to fold the
+          disk into second and third images. The thin ring at the edge of the shadow is not drawn:
+          it is those images stacking up. Drag (or scroll, or use the arrow keys) to tilt: at
+          edge-on, the far side of the disk is lensed up over the top and closed under the bottom
+          into a full halo.
         </p>
-        <pre><code>// keplerian differential rotation
-float omega = 2.2 * pow(rd, -1.5); // inner material orbits faster</code></pre>
         <p>
-          The march writes linear HDR light into a half-float buffer. A half-resolution bloom lifts
-          the photon ring and the disk's inner edge, then one grade pass tone-maps, adds film grain
-          sized to the device pixel, dithers, and vignettes.
+          The disk is a slab of turbulent fBm rotating Kepler-style, inner material faster. It emits
+          and it absorbs, so its near rim occludes its far one. Each crossing carries the
+          relativistic frequency shift (orbital doppler against the photon's own direction, times
+          the gravitational redshift), and that shift is applied as colour and as beaming, not just
+          brightness. The approaching side runs blue and burns; the receding side falls to a dim red.
+        </p>
+        <pre><code>// how much bluer and brighter: observed / emitted frequency
+float shift = grav / (gamma * (1.0 - beta * mu));
+float emis  = dens * pow(shift, 1.35);
+emis /= 1.0 + emis * 0.30;  // ceiling: clipping erases colour</code></pre>
+        <p>
+          Everything else is sampling. The stars sit on an equal-angle grid and each one is drawn at
+          least as wide as the pixel it lands on, so none of them can fall between samples and
+          scintillate; where a ray has wound far enough that the lens is squeezing a whole patch of
+          sky into a hairline, they widen and dim rather than pretending to be points. The march
+          writes linear HDR light into a half-float buffer; a half-resolution bloom lifts the ring and
+          the disk's inner edge, then one grade pass tone-maps, adds film grain sized to the device
+          pixel, dithers, and vignettes.
         </p>
       </aside>
     </main>

@@ -29,10 +29,93 @@ body {
   width: 100%;
   height: 100%;
   display: block;
+  cursor: grab;
+  touch-action: none; /* the drag is the instrument; the browser must not pan */
+}
+
+.eh-dragging #eh-gl {
+  cursor: grabbing;
+}
+
+/* ————— the one affordance: drag to tilt, retired the moment it is used ————— */
+
+.eh-hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--lab-inset) + env(safe-area-inset-bottom, 0px) + 54px);
+  z-index: 16;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0 12px;
+  font-family: var(--lab-font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(234, 230, 220, 0.74);
+  text-shadow: 0 0 7px rgba(0, 0, 0, 0.98), 0 1px 3px rgba(0, 0, 0, 0.92);
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* ————— the scrim ————— */
+/* These two lines sit wherever the disk happens to be, and at low inclination that
+   is a moving HDR highlight: a text-shadow cannot win against it at any radius.
+   A blurred radial wash of the page's own black can, and over the void it is
+   invisible (rgb 8,7,7 against a #0b0b0d ground). */
+
+/* .eh-hint is already a stacking context (fixed + z-index), so it needs nothing
+   here — and listing it here is what broke it: this rule's `position: relative`
+   has the same specificity as the block above and comes later, so the hint
+   resolved into flow and sat 78px ABOVE the viewport, never painting. */
+.headline p {
+  position: relative;
+  isolation: isolate;
+}
+
+.eh-hint::before,
+.headline p::before {
+  content: '';
+  position: absolute;
+  inset: -1.1em -2.6em;
+  z-index: -1;
+  background: radial-gradient(60% 140% at 50% 50%, rgba(8, 7, 7, 0.86), rgba(8, 7, 7, 0) 72%);
+  filter: blur(6px);
+}
+
+.js.eh-ready .eh-hint {
+  animation: eh-hint-in 1.4s var(--lab-ease) 1.6s both;
+}
+
+/* the hint asks for a drag, so it retires when the tilt has actually moved —
+   a press that never became a drag has taught nobody anything. The headline
+   retires on eh-touched, one class earlier, so the two never fight: the hint
+   can outlive it, and the design note (a full-width panel on a phone) hides
+   both the same way. */
+.js.eh-used .eh-hint,
+body:has([data-lc-panel][data-state='open']) .eh-hint {
+  animation: none;
+  opacity: 0;
+  transition: opacity 0.5s var(--lab-ease);
+}
+
+@keyframes eh-hint-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .ember {
   color: var(--ember);
+}
+
+/* the accent is the lowest-contrast ink on the page and the disk moves under it,
+   so in the headline it gets a tighter, darker halo than the line around it */
+.headline .ember {
+  text-shadow:
+    0 0 5px rgb(0, 0, 0),
+    0 0 13px rgb(0, 0, 0),
+    0 1px 3px rgb(0, 0, 0);
 }
 
 /* ————— headline ————— */
@@ -53,7 +136,9 @@ body {
 .headline h1 {
   font-family: var(--lab-font-display);
   font-weight: 400;
-  font-size: clamp(26px, 4.2vw, 46px);
+  /* the shadow is fit by the short axis, so the type has to follow the height too:
+     on a 2400x420 window a width-only clamp puts the whole block on the bright band */
+  font-size: clamp(22px, min(4.2vw, 9vh), 46px);
   letter-spacing: 0.01em;
   line-height: 1.1;
   color: var(--lab-ink);
@@ -71,10 +156,10 @@ body {
   font-weight: 500;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(234, 230, 220, 0.55);
+  color: rgba(234, 230, 220, 0.62);
   margin: 0.4em 0 0;
   transform: translateY(0.9em);
-  text-shadow: 0 0 16px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 7px rgba(0, 0, 0, 0.98), 0 1px 3px rgba(0, 0, 0, 0.92);
 }
 
 /* the exhibit line's middle dot becomes a line break under 640px */
@@ -88,12 +173,29 @@ body {
 }
 
 .js.eh-ready .headline {
-  animation: eh-rise 1.8s var(--lab-ease) 0.25s both;
+  opacity: 1;
+  /* the fade is a transition and only the slide is a keyframe, so the retire below
+     always wins — an animation's filled value would outrank it for its whole run,
+     and someone who grabs the instrument in the first two seconds would watch the
+     headline sit there */
+  transition: opacity 1.4s var(--lab-ease) 0.25s;
+  animation: eh-rise 1.8s var(--lab-ease) 0.25s backwards;
+}
+
+/* The headline is an introduction; the tilt is the piece. Once a hand is on the
+   instrument the words are in the way — and at edge-on the band runs straight
+   through them. It also steps aside for the design note, which on a phone is a
+   full-width translucent panel the headline would otherwise ghost through. */
+.js.eh-touched .headline,
+body:has([data-lc-panel][data-state='open']) .headline {
+  opacity: 0;
+  transition: opacity 0.55s var(--lab-ease);
+  pointer-events: none;
 }
 
 @keyframes eh-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(8px); }
+  to { transform: translateY(0); }
 }
 
 /* ————— design note: the page owns the box, the chrome animates it ————— */
@@ -130,6 +232,10 @@ body {
   margin: 0;
 }
 
+.eh-note-panel p + p {
+  margin-top: 15px;
+}
+
 .eh-note-panel pre {
   margin: 16px 0;
   padding: 13px 16px;
@@ -147,14 +253,57 @@ body {
 
 /* ————— small screens ————— */
 
-/* portrait: the disk band crosses the middle, so the headline sits up in the shadow */
+/* The disk band crosses the middle, and as the halo closes it collapses onto the
+   exact vertical centre — which is where the exhibit line sits. scene.ts writes
+   --eh-lift from the live inclination, so the type rides up into the shadow
+   exactly as far as the band demands. */
+@media (min-aspect-ratio: 1/1) {
+  .headline {
+    padding-bottom: var(--eh-lift, 7vh);
+  }
+}
+
 @media (max-aspect-ratio: 1/1) {
   .headline {
-    padding-bottom: 22vh;
+    padding-bottom: calc(var(--eh-lift, 7vh) + 13vh);
+  }
+}
+
+/* A short, wide window (a half-height window on a wide display, or a 21:9 monitor)
+   fits the hole by height, so the shadow the type has to sit inside is only a few
+   hundred pixels tall. Lift harder and set the exhibit line smaller there. */
+@media (min-aspect-ratio: 1/1) and (max-height: 620px) {
+  .headline {
+    padding-bottom: calc(var(--eh-lift, 7vh) + 11vh);
+  }
+
+  /* the shadow is narrower than the exhibit line here, and no vertical lift fixes
+     a horizontal overrun: break the line the way the phone layout already does */
+  .headline p {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    line-height: 1.9;
+  }
+
+  .headline .eh-sep {
+    display: none;
+  }
+
+  .headline .eh-br {
+    display: inline;
   }
 }
 
 @media (max-width: 640px) {
+  /* A phone gives the code block about 43 characters and the shortest of these lines is 46, so
+     overflow-x meant every block ended mid-token with the rest behind a sideways scroll nobody
+     finds. Wrapping is the lesser evil at this width; desktop keeps the scroll, where the lines
+     are short enough that nothing needs it. Same reasoning as sonic-terrain. */
+  .eh-note-panel pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
   .headline p {
     font-size: 10px;
     letter-spacing: 0.22em;
@@ -169,12 +318,31 @@ body {
     display: inline;
   }
 
+  /* no arrow keys on a phone */
+  .eh-hint-keys {
+    display: none;
+  }
+
   .eh-note-panel {
     top: calc(var(--lab-inset) + 76px);
     max-height: calc(100vh - var(--lab-inset) * 2 - 76px - 44px);
     max-height: calc(100dvh - var(--lab-inset) * 2 - 76px - 44px);
     padding: 18px 20px 16px;
   }
+}
+
+/* the tilt readout for assistive tech: present to a screen reader, absent to the eye */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ————— forced colours ————— */
@@ -194,6 +362,14 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .js.eh-ready .headline {
+    animation: none;
+    transition: none;
+    opacity: 1;
+  }
+
+  /* the still frame arrives complete, hint included — but :not(.eh-used) keeps
+     this out of the way of the retire above, which is still the viewer's to earn */
+  .js.eh-ready:not(.eh-used) .eh-hint {
     animation: none;
     opacity: 1;
   }

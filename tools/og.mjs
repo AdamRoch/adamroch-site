@@ -57,32 +57,38 @@ const CARD = `(() => {
 })()`;
 
 const page = await launch({ W: 1200, H: 630, DPR: 1 });
-await page.goto(url, wait);
-// the lens fades in on gl-ready; without it the card would be flat ground
-const ready = await page.evaluate(
-  `new Promise((r) => { const d = document.documentElement;
-     if (d.classList.contains('gl-ready') || d.classList.contains('nogl')) return r(d.className);
-     const o = new MutationObserver(() => { if (d.classList.contains('gl-ready') || d.classList.contains('nogl')) { o.disconnect(); r(d.className); } });
-     o.observe(d, { attributes: true, attributeFilter: ['class'] });
-     setTimeout(() => { o.disconnect(); r(d.className + ' (timeout)'); }, 8000); })`
-);
-await page.evaluate(CARD);
-await new Promise((r) => setTimeout(r, 1200));
-writeFileSync(`${outDir}/og.png`, await png(page));
-console.log(`wrote ${outDir}/og.png  1200x630  (${ready.trim()})`);
-page.close();
+try {
+  await page.goto(url, wait);
+  // the lens fades in on gl-ready; without it the card would be flat ground
+  const ready = await page.evaluate(
+    `new Promise((r) => { const d = document.documentElement;
+       if (d.classList.contains('gl-ready') || d.classList.contains('nogl')) return r(d.className);
+       const o = new MutationObserver(() => { if (d.classList.contains('gl-ready') || d.classList.contains('nogl')) { o.disconnect(); r(d.className); } });
+       o.observe(d, { attributes: true, attributeFilter: ['class'] });
+       setTimeout(() => { o.disconnect(); r(d.className + ' (timeout)'); }, 8000); })`
+  );
+  await page.evaluate(CARD);
+  await new Promise((r) => setTimeout(r, 1200));
+  writeFileSync(`${outDir}/og.png`, await png(page));
+  console.log(`wrote ${outDir}/og.png  1200x630  (${ready.trim()})`);
+} finally {
+  await page.close();
+}
 
 /* ————— the apple touch icon ————— */
 
 const icon = await launch({ W: 180, H: 180, DPR: 1 });
-await icon.goto(new URL('/favicon.svg', url).href, 600);
-// favicon.svg is drawn on the page ground; the icon needs that ground opaque
-await icon.evaluate(`document.documentElement.style.background = '#0b0a09';
-  const s = document.querySelector('svg');
-  if (s) { s.setAttribute('width', '180'); s.setAttribute('height', '180'); }
-  document.body && (document.body.style.margin = '0'); true`);
-await new Promise((r) => setTimeout(r, 300));
-writeFileSync(`${outDir}/icon-180.png`, await png(icon));
-console.log(`wrote ${outDir}/icon-180.png  180x180`);
-icon.close();
+try {
+  await icon.goto(new URL('/favicon.svg', url).href, 600);
+  // favicon.svg is drawn on the page ground; the icon needs that ground opaque
+  await icon.evaluate(`document.documentElement.style.background = '#0b0a09';
+    const s = document.querySelector('svg');
+    if (s) { s.setAttribute('width', '180'); s.setAttribute('height', '180'); }
+    document.body && (document.body.style.margin = '0'); true`);
+  await new Promise((r) => setTimeout(r, 300));
+  writeFileSync(`${outDir}/icon-180.png`, await png(icon));
+  console.log(`wrote ${outDir}/icon-180.png  180x180`);
+} finally {
+  await icon.close();
+}
 process.exit(0);
