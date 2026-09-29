@@ -766,10 +766,11 @@ export function createPath(opts: PathOptions = {}): LensPath {
     return { ys, x: ruleX };
   }
 
+  // y is not clamped: a door's mass follows its row off screen instead of parking at the edge
   function doorMass(row: HTMLElement, scrollY: number, thetaE: number): LensMass {
     const p = doors.get(row);
     if (!p) return { x: 0.93, y: 0.5, thetaE };
-    return { x: softClamp(p.x / vw, 0.06, 0.94), y: softClamp((p.y - scrollY) / vh, 0.12, 0.88), thetaE };
+    return { x: softClamp(p.x / vw, 0.06, 0.94), y: (p.y - scrollY) / vh, thetaE };
   }
 
   const ro = new ResizeObserver(refresh);

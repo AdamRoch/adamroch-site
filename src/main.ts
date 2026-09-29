@@ -249,6 +249,10 @@ function wireLens(lens: LensHandle): Seam | null {
   const target: PathSample = { x: 0.74, y: 0.4, thetaE: 0.11, horizon: 0.42, gain: 1 };
   let lastY = window.scrollY;
   let velocity = 0;
+  // doors: hover, keyboard focus and touch-press pull a second mass onto the door
+  const rows = Array.from(document.querySelectorAll<HTMLElement>('.row'));
+  let hovered: HTMLElement | null = null;
+  let focused: HTMLElement | null = null;
 
   const feed = (dtMs: number): void => {
     const s = window.scrollY;
@@ -271,52 +275,85 @@ function wireLens(lens: LensHandle): Seam | null {
     }
     lastY = s;
     lens.setVelocity(Math.max(-1, Math.min(1, velocity / 1.5)));
+    // placed every frame, so a door's mass rides its row while the page moves and while it fades
+    for (const row of rows) {
+      const lit = !seam.navigating && (row === hovered || row === focused);
+      lens.setSecondary(row.dataset.lab ?? 'row', path.doorMass(row, s, lit ? 0.09 : 0));
+    }
   };
 
-  const seam = initSeam(lens, { reduced, onLeave: (row) => lens.setSecondary(row.dataset.lab ?? 'row', null) });
+  // leaving through a door lets go of it: back from bfcache, it stays unlit until the pointer
+  // or focus returns
+  const seam = initSeam(lens, {
+    reduced,
+    onLeave: () => {
+      hovered = null;
+      focused = null;
+    },
+  });
   const path: LensPath = createPath({ onMeasure: () => reduced && feed(0) });
 
   const feedTick = (_t: number, dt: number): void => feed(dt);
+  // reduced motion draws on demand, one frame per change: the ring moves with the page and
+  // nothing else moves. With full motion the ticker already feeds every frame.
   let queued = 0;
-  const onScroll = (): void => {
-    if (queued) return;
+  const refeed = (): void => {
+    if (!reduced || queued) return;
     queued = requestAnimationFrame(() => {
       queued = 0;
       feed(0);
     });
   };
-  if (reduced) {
-    // one frame per change: the ring moves with the page, nothing else moves
-    feed(0);
-    window.addEventListener('scroll', onScroll, { passive: true });
-  } else {
-    feed(0);
-    gsap.ticker.add(feedTick);
-  }
+  // while the page moves there is one lens: a scroll lets go of the hovered door
+  const onScroll = (): void => {
+    hovered = null;
+    refeed();
+  };
+  // A row that scrolls under a pointer that has not moved still gets pointerover, at the
+  // coordinates the pointer already had, so only a pointer event that moved lights a door.
+  let px = NaN;
+  let py = NaN;
+  const onPointer = (e: PointerEvent): void => {
+    if (e.clientX === px && e.clientY === py) return;
+    px = e.clientX;
+    py = e.clientY;
+    const row = (e.target as Element | null)?.closest<HTMLElement>('.row') ?? null;
+    if (row === hovered) return;
+    hovered = row;
+    refeed();
+  };
+  const onPointerOut = (e: PointerEvent): void => {
+    if (!hovered || hovered.contains(e.relatedTarget as Node | null)) return;
+    hovered = null;
+    refeed();
+  };
+  const onFocus = (e: FocusEvent): void => {
+    focused = e.type === 'focusin' ? ((e.target as Element | null)?.closest<HTMLElement>('.row') ?? null) : null;
+    refeed();
+  };
+  feed(0);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  document.addEventListener('pointerover', onPointer);
+  document.addEventListener('pointermove', onPointer, { passive: true });
+  document.addEventListener('pointerout', onPointerOut);
+  document.addEventListener('focusin', onFocus);
+  document.addEventListener('focusout', onFocus);
+  if (!reduced) gsap.ticker.add(feedTick);
 
   // when the lens gives up, so does everything that was feeding it
   lensTeardown = (): void => {
     gsap.ticker.remove(feedTick);
     window.removeEventListener('scroll', onScroll);
     window.removeEventListener('resize', retargetModal);
+    document.removeEventListener('pointerover', onPointer);
+    document.removeEventListener('pointermove', onPointer);
+    document.removeEventListener('pointerout', onPointerOut);
+    document.removeEventListener('focusin', onFocus);
+    document.removeEventListener('focusout', onFocus);
     cancelAnimationFrame(queued);
     path.destroy();
     seam.destroy();
   };
-
-  // doors: hover, focus and touch-press all pull a second mass onto the door
-  document.querySelectorAll<HTMLElement>('.row').forEach((row) => {
-    const id = row.dataset.lab ?? 'row';
-    const on = (): void => {
-      if (seam.navigating) return;
-      lens.setSecondary(id, path.doorMass(row, window.scrollY, 0.09));
-    };
-    const off = (): void => lens.setSecondary(id, null);
-    row.addEventListener('pointerenter', on);
-    row.addEventListener('pointerleave', off);
-    row.addEventListener('focusin', on);
-    row.addEventListener('focusout', off);
-  });
 
   // pointer tide (mouse only): the primary leans 3 % toward the pointer and the band tilts
   if (!touch && !reduced) {

@@ -53,7 +53,7 @@ export interface LensHandle {
   arrive(ms?: number): void;
   setPrimary(m: LensMass): void;
   setHorizon(y01: number): void;
-  setSecondary(id: string, m: LensMass | null): void;
+  setSecondary(id: string, m: LensMass | null): void; // null or thetaE 0 fades it out; a fading mass still follows m
   setRules(ys: number[], x?: [number, number]): void; // viewport css px; optional x extent, default full width
   setPointer(nx: number, ny: number): void;
   setVelocity(v: number): void;
@@ -498,10 +498,15 @@ export function initLens(canvas: HTMLCanvasElement, opts: LensOptions): LensHand
 
     setSecondary(id, m) {
       const s = secs.get(id);
-      if (!m) {
+      if (!m || m.thetaE <= 0) {
+        // a fade never creates a mass, so a caller can keep moving one until it is gone
         if (s) {
           s.live = false;
           s.te.target = 0;
+          if (m) {
+            s.x = m.x;
+            s.y = m.y;
+          }
         }
         requestRender();
         return;
