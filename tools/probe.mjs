@@ -293,7 +293,8 @@ const COLLECT = `((sel) => {
     // a line still parked in its pre-reveal from-state is clipped away by the split's mask:
     // its box is real but nothing is painted there, so it is not a contrast measurement
     let clip = null;
-    for (let a = el.parentElement; a && !clip; a = a.parentElement) {
+    // from the text's own element: a visually hidden label clips its text with its own overflow
+    for (let a = el; a && !clip; a = a.parentElement) {
       if (getComputedStyle(a).overflow !== 'visible') clip = a.getBoundingClientRect();
     }
     const inView = rects.filter((r) => r.w > 0 && r.h > 0 && r.y < innerHeight && r.y + r.h > 0 && r.x < innerWidth && r.x + r.w > 0 && !(underBar && r.y < barBottom) && !(clip && (r.y + r.h <= clip.top + 1 || r.y >= clip.bottom - 1 || r.x + r.w <= clip.left + 1 || r.x >= clip.right - 1)));

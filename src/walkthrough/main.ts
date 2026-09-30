@@ -10,7 +10,7 @@ const chrome = mountLabChrome({
   index: 4,
   total: 5,
   title: 'Walkthrough',
-  next: { href: '/lab/broadsheet/', title: 'The Broadsheet' },
+  next: { href: '/lab/broadsheet/', title: 'Tender' },
   notePanelId: 'wt-note-panel',
   skin: 'wt brackets',
 });

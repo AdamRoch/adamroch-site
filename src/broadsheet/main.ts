@@ -1,374 +1,179 @@
+/* ————— Lab 05 · Tender: chrome + curtain first, three.js behind it ————— */
+// The slug is still /lab/broadsheet/ (links and the UPDATED label key on it); the page that
+// lived here was an essay set like a newspaper, and this one replaced it.
+// No static three import here: the curtain has to be on screen before three is fetched.
+// Everything in this file works without WebGL; the coins are an addition, not the page.
+
+import { mountLabChrome, mountPreloader } from '../lab-chrome';
+import { createScroll } from './scroll';
 import './style.css';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { SplitText } from 'gsap/SplitText';
-import { mountLabChrome } from '../lab-chrome';
 
-gsap.registerPlugin(ScrollTrigger, SplitText);
+const html = document.documentElement;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-const FOLIO_PAGES = 9;
-
-/* ————— shared chrome: paper chips over the crop marks and folio bar ————— */
-
-mountLabChrome({
+const chrome = mountLabChrome({
   index: 5,
   total: 5,
-  title: 'Attention Is a Material',
+  title: 'Tender',
   next: { href: '/lab/event-horizon/', title: 'Event Horizon' },
-  notePanelId: 'bs-note-panel',
-  skin: 'chips bs',
+  notePanelId: 'tn-note-panel',
+  skin: 'glass',
 });
 
-/* ————— folio: page counter + progress rule (informational, always live) ————— */
+const loader = mountPreloader({ title: 'Tender', index: 5, total: 5 });
+loader.set(0.04, 'fetching three');
 
-function initFolio(): void {
-  const fill = document.getElementById('folio-fill');
-  const page = document.getElementById('folio-page');
-  if (!fill || !page) return;
+const scroll = createScroll();
+const st = scroll.state();
 
-  const sync = (progress: number): void => {
-    gsap.set(fill, { scaleX: progress });
-    const n = Math.min(FOLIO_PAGES, Math.floor(progress * FOLIO_PAGES) + 1);
-    page.textContent = `Folio ${String(n).padStart(2, '0')} / ${FOLIO_PAGES}`;
-  };
+/* ————— buttons ————— */
 
-  const st = ScrollTrigger.create({
-    start: 0,
-    end: 'max',
-    onUpdate: (self) => sync(self.progress),
-  });
-  sync(st.progress);
+// the hero's "How it's built" toggles the same note as the chrome's button. The chrome closes
+// the note on any pointerdown outside it, which would shut it just before this click reopened it.
+const noteOpen = (): boolean => document.querySelector('.lc-note')?.getAttribute('aria-expanded') === 'true';
+document.querySelectorAll<HTMLElement>('[data-open-note]').forEach((b) => {
+  b.addEventListener('pointerdown', (e) => e.stopPropagation());
+  b.addEventListener('click', () => chrome.setNoteOpen(!noteOpen()));
+});
+
+document.querySelectorAll<HTMLAnchorElement>('[data-top]').forEach((a) =>
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+    document.getElementById('top')?.focus({ preventScroll: true });
+  })
+);
+
+/* ————— what the scroll position says about the page ————— */
+
+const unfurl = document.getElementById('unfurl');
+const navLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.tn-nav [data-nav]'));
+const navPill = document.querySelector<HTMLElement>('.tn-nav-pill');
+const spentEl = document.querySelector<HTMLElement>('[data-spent]');
+let navBoxes: { left: number; width: number }[] = [];
+let spent = 0;
+let lastY = window.scrollY;
+let shownBeat = '';
+let shownChapter = '';
+let shownTop = '';
+let shownBottom = '';
+let shownBg = '';
+let shownSpent = '';
+
+function measureNav(): void {
+  navBoxes = navLinks.map((a) => ({ left: a.offsetLeft, width: a.offsetWidth }));
 }
 
-/* ————— fonts: the masthead rise waits (briefly) for Clash Display and Sentient ————— */
+function sync(): void {
+  const y = window.scrollY;
+  scroll.read(y, st);
+  spent += Math.abs(y - lastY);
+  lastY = y;
 
-const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
-// document.fonts.ready can resolve before a cross-origin @font-face sheet has even parsed,
-// so wait for the stylesheet links first, then for the faces they declare.
-function fontsSettled(): Promise<void> {
-  const links = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'));
-  const sheets = links.map(
-    (link) =>
-      new Promise<void>((resolve) => {
-        if (link.sheet) return resolve();
-        link.addEventListener('load', () => resolve(), { once: true });
-        link.addEventListener('error', () => resolve(), { once: true });
-      })
-  );
-  return Promise.all(sheets).then(() => document.fonts?.ready.then(() => undefined) ?? undefined);
-}
-
-/* ————— masthead: weight-axis breathing, masked rise, redaction peel ————— */
-
-async function initMasthead(): Promise<void> {
-  if (reduced) return;
-
-  // .bs-js pre-hides every masthead element in CSS; nothing paints and then disappears.
-  await Promise.race([fontsSettled(), wait(1200)]);
-
-  const lines = gsap.utils.toArray<HTMLElement>('.mast-line.disp');
-  const alt = document.querySelector<HTMLElement>('.mast-line.alt');
-
-  lines.forEach((line, i) => {
-    const proxy = { w: 200 };
-    // y: 0 clears the pixel value gsap parses out of the CSS translateY(115%) pre-hide
-    gsap.set(line, { y: 0, yPercent: 115 });
-    gsap.to(line, {
-      yPercent: 0,
-      duration: 1.3,
-      delay: 0.15 + i * 0.14,
-      ease: 'power4.out',
-    });
-    gsap.to(proxy, {
-      w: 610,
-      duration: 1.7,
-      delay: 0.2 + i * 0.14,
-      ease: 'power2.inOut',
-      onUpdate: () => {
-        line.style.fontVariationSettings = `'wght' ${proxy.w.toFixed(1)}`;
-      },
-    });
-  });
-
-  if (alt) {
-    gsap.set(alt, { y: 0, yPercent: 115 });
-    gsap.to(alt, { yPercent: 0, duration: 1.3, delay: 0.43, ease: 'power4.out' });
+  // the unfurl headline changes in three beats as its section scrolls
+  const k = scroll.sections.findIndex((s) => s.el === unfurl);
+  const q = k >= 0 ? st.pin[k] : 0;
+  const beat = q < 0.34 ? '0' : q < 0.68 ? '1' : '2';
+  if (beat !== shownBeat && unfurl) {
+    shownBeat = beat;
+    unfurl.dataset.beat = beat;
   }
 
-  gsap.fromTo(
-    '.mast-meta',
-    { opacity: 0, y: -14 },
-    { opacity: 1, y: 0, duration: 0.9, delay: 0.95, ease: 'power3.out' }
-  );
-  gsap.fromTo(
-    ['.kicker', '.deck', '.mast-hint'],
-    { opacity: 0, y: 22 },
-    { opacity: 1, y: 0, duration: 1, stagger: 0.12, delay: 0.8, ease: 'power3.out' }
-  );
-
-  gsap.to('.mast-inner', {
-    yPercent: -6,
-    opacity: 0.25,
-    ease: 'none',
-    scrollTrigger: { trigger: '.masthead', start: 'top top', end: 'bottom top', scrub: true },
-  });
-
-  gsap.to('.redact-bar', {
-    scaleX: 0,
-    stagger: 0.2,
-    ease: 'none',
-    scrollTrigger: { trigger: '.deck', start: 'top 40%', end: 'top 8%', scrub: true },
-  });
-}
-
-/* ————— hairline rules draw themselves in ————— */
-
-function initRules(): void {
-  if (reduced) return;
-  gsap.utils.toArray<HTMLElement>('.hr').forEach((el) => {
-    gsap.fromTo(
-      el,
-      { scaleX: 0 },
-      {
-        scaleX: 1,
-        ease: 'none',
-        scrollTrigger: { trigger: el, start: 'top 94%', end: 'top 58%', scrub: true },
-      }
-    );
-  });
-}
-
-/* ————— quiet reveals for heads and marginalia ————— */
-
-function initReveals(): void {
-  if (reduced) return;
-  gsap.utils.toArray<HTMLElement>('[data-reveal]').forEach((el) => {
-    gsap.fromTo(
-      el,
-      { opacity: 0, y: 26 },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 1.05,
-        ease: 'power3.out',
-        scrollTrigger: { trigger: el, start: 'top 86%', once: true },
-      }
-    );
-  });
-}
-
-/* ————— pull quotes: pin, then scatter with scroll velocity ————— */
-
-function initPulls(): void {
-  if (reduced) return;
-  const pulls = gsap.utils.toArray<HTMLElement>('.pull');
-  if (pulls.length === 0) return;
-
-  const mm = gsap.matchMedia();
-
-  mm.add('(min-width: 861px)', () => {
-    const cleanups: Array<() => void> = [];
-
-    pulls.forEach((pull) => {
-      const text = pull.querySelector<HTMLElement>('.pull-text');
-      if (!text) return;
-
-      const split = new SplitText(text, { type: 'words,chars', wordsClass: 'pull-word', charsClass: 'pull-ch' });
-      const chars = split.chars as HTMLElement[];
-      const dir = chars.map(() => ({
-        x: gsap.utils.random(-1, 1),
-        y: gsap.utils.random(-0.8, 0.6),
-        r: gsap.utils.random(-14, 14),
-      }));
-
-      gsap.from(pull, {
-        opacity: 0,
-        y: 60,
-        duration: 1,
-        ease: 'power3.out',
-        scrollTrigger: { trigger: pull, start: 'top 85%', once: true },
-      });
-
-      const settle = gsap.delayedCall(0.16, () => {
-        chars.forEach((c) =>
-          gsap.to(c, {
-            x: 0,
-            y: 0,
-            rotation: 0,
-            duration: 1.2,
-            ease: 'elastic.out(1, 0.55)',
-            overwrite: 'auto',
-          })
-        );
-      }).pause();
-
-      const st = ScrollTrigger.create({
-        trigger: pull,
-        start: 'top top',
-        end: '+=130%',
-        pin: true,
-        anticipatePin: 1,
-        onUpdate: (self) => {
-          settle.restart(true);
-          const kick = gsap.utils.clamp(-1, 1, self.getVelocity() / 1800);
-          const swell = Math.sin(Math.PI * self.progress);
-          const amp = kick * 96 + swell * 10;
-          chars.forEach((c, i) => {
-            gsap.to(c, {
-              x: dir[i].x * amp,
-              y: dir[i].y * amp,
-              rotation: dir[i].r * kick,
-              duration: 0.55,
-              ease: 'power3.out',
-              overwrite: 'auto',
-            });
-          });
-        },
-      });
-
-      cleanups.push(() => {
-        st.kill();
-        settle.kill();
-        split.revert();
-        gsap.set([pull, text], { clearProps: 'all' });
-      });
+  // the chapter under the middle of the viewport lights its tab
+  const mid = scroll.sectionAt(y, st.vh * 0.5);
+  const chapter = mid?.chapter ?? '';
+  if (chapter !== shownChapter) {
+    shownChapter = chapter;
+    let on = -1;
+    navLinks.forEach((a, i) => {
+      const hit = a.dataset.nav === chapter;
+      if (hit) {
+        on = i;
+        a.setAttribute('aria-current', 'true');
+      } else a.removeAttribute('aria-current');
     });
+    if (navPill) {
+      const b = navBoxes[on];
+      navPill.style.opacity = b ? '1' : '0';
+      if (b) navPill.style.transform = `translateX(${b.left}px)`;
+      if (b) navPill.style.width = `${b.width}px`;
+    }
+  }
 
-    return () => cleanups.forEach((fn) => fn());
+  // the fixed chrome reads on whatever section is under it: top edge and bottom edge apart
+  const top = scroll.sectionAt(y, 36)?.tone ?? 'dark';
+  const under = scroll.sectionAt(y, st.vh - 36);
+  const bottom = under?.tone ?? 'dark';
+  if (top !== shownTop) html.dataset.toneTop = shownTop = top;
+  if (bottom !== shownBottom) html.dataset.toneBottom = shownBottom = bottom;
+  const bg = under?.el.dataset.bg ?? '';
+  if (bg !== shownBg) html.dataset.bgBottom = shownBg = bg;
+
+  const s = Math.round(spent).toLocaleString('en-US');
+  if (s !== shownSpent && spentEl) spentEl.textContent = shownSpent = s;
+}
+
+let queued = 0;
+function request(): void {
+  if (queued) return;
+  queued = requestAnimationFrame(() => {
+    queued = 0;
+    sync();
   });
 }
 
-/* ————— plate I: hairline field bending around the pointer ————— */
+function remeasure(): void {
+  scroll.measure();
+  measureNav();
+  shownChapter = ''; // the pill's box may have moved
+  sync();
+  document.dispatchEvent(new Event('tn:measure'));
+}
 
-function initPlate(): void {
-  const canvas = document.getElementById('plate-canvas') as HTMLCanvasElement | null;
-  const plate = canvas?.parentElement;
-  const ctx = canvas?.getContext('2d');
-  if (!canvas || !plate || !ctx) return;
+window.addEventListener('scroll', request, { passive: true });
+// anything that moves the sections (a resize, the fonts, a reflow) re-reads them, once it settles
+let rz = 0;
+const later = (): void => {
+  clearTimeout(rz);
+  rz = window.setTimeout(remeasure, 120);
+};
+window.addEventListener('resize', later);
+new ResizeObserver(later).observe(document.body);
+document.fonts?.ready.then(remeasure);
+remeasure();
 
-  const INK = 'rgba(22, 19, 14, 0.34)';
-  const SPOT = 'rgba(255, 77, 0, 0.8)';
-  const GROUND = '#f0ece2';
+/* ————— reveals: each section's type rises once, the first time it is seen ————— */
 
-  let w = 1;
-  let h = 1;
-  let tx = 0;
-  let ty = 0;
-  let cx = 0;
-  let cy = 0;
-  let hasPointer = false;
-  let running = false;
-  let raf = 0;
-
-  const draw = (): void => {
-    ctx.fillStyle = GROUND;
-    ctx.fillRect(0, 0, w, h);
-
-    const gap = Math.max(20, Math.round(w / 54));
-    const cols = Math.ceil(w / gap) + 1;
-    // 72 samples per rule: dense enough that the gaussian bulge reads as a curve, not a chevron
-    const steps = 72;
-    const radius = Math.max(w, h) * 0.17;
-    const r2 = radius * radius;
-    const push = radius * 0.3;
-    // soft core: without it the radial direction dx/dist spikes to +-1 for the rule right
-    // under the pointer and that rule reads as a chevron however finely it is sampled
-    const core2 = gap * gap;
-
-    ctx.lineWidth = 1;
-    for (let i = 0; i < cols; i++) {
-      const x0 = i * gap + gap / 2;
-      ctx.strokeStyle = i % 6 === 2 ? SPOT : INK;
-      ctx.beginPath();
-      for (let j = 0; j <= steps; j++) {
-        const y = (j / steps) * h;
-        const dx = x0 - cx;
-        const dy = y - cy;
-        const d2 = dx * dx + dy * dy;
-        const g = Math.exp(-d2 / r2);
-        const dist = Math.sqrt(d2 + core2);
-        const px = x0 + (dx / dist) * g * push;
-        if (j === 0) ctx.moveTo(px, y);
-        else ctx.lineTo(px, y);
-      }
-      ctx.stroke();
-    }
-  };
-
-  const resize = (): void => {
-    const rect = plate.getBoundingClientRect();
-    w = Math.max(1, Math.round(rect.width));
-    h = Math.max(1, Math.round(rect.height));
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (!hasPointer) {
-      cx = w * 0.62;
-      cy = h * 0.42;
-      tx = cx;
-      ty = cy;
-    }
-    draw();
-  };
-
-  const tick = (now: number): void => {
-    if (!hasPointer) {
-      tx = w * (0.5 + Math.sin(now * 0.00023) * 0.33);
-      ty = h * (0.45 + Math.cos(now * 0.00031) * 0.18);
-    }
-    cx += (tx - cx) * 0.07;
-    cy += (ty - cy) * 0.07;
-    draw();
-    raf = requestAnimationFrame(tick);
-  };
-
-  const play = (): void => {
-    if (running || reduced) return;
-    running = true;
-    raf = requestAnimationFrame(tick);
-  };
-
-  const halt = (): void => {
-    running = false;
-    cancelAnimationFrame(raf);
-  };
-
+if (!reduced && 'IntersectionObserver' in window) {
   const io = new IntersectionObserver(
-    (entries) => entries.forEach((e) => (e.isIntersecting ? play() : halt())),
-    { rootMargin: '80px' }
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add('is-in');
+        io.unobserve(e.target);
+      }
+    },
+    { threshold: 0.2 }
   );
-  io.observe(plate);
+  document.querySelectorAll('.tn-sec').forEach((s) => io.observe(s));
+} else {
+  document.querySelectorAll('.tn-sec').forEach((s) => s.classList.add('is-in'));
+}
 
-  if (!reduced) {
-    plate.addEventListener('pointermove', (e) => {
-      const r = plate.getBoundingClientRect();
-      hasPointer = true;
-      tx = e.clientX - r.left;
-      ty = e.clientY - r.top;
-    });
-    plate.addEventListener('pointerleave', () => {
-      hasPointer = false;
-    });
+/* ————— the coins ————— */
+
+async function start(): Promise<void> {
+  try {
+    const { boot } = await import('./scene');
+    loader.set(0.3, 'setting up');
+    await boot({ chrome, loader, scroll });
+  } catch (err) {
+    // no WebGL or a broken shader: lift the curtain so the page is still a page
+    chrome.setStatus('WebGL unavailable');
+    html.classList.add('tn-nogl');
+    void loader.done();
+    throw err;
   }
-
-  window.addEventListener('resize', resize);
-  resize();
 }
 
-/* ————— go ————— */
-
-initFolio();
-void initMasthead();
-initRules();
-initReveals();
-initPulls();
-initPlate();
-
-if (document.fonts) {
-  document.fonts.ready.then(() => ScrollTrigger.refresh());
-}
-window.addEventListener('load', () => ScrollTrigger.refresh());
+void start();

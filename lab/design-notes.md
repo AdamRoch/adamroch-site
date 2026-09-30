@@ -153,7 +153,8 @@ cuts to white.
    variable masthead breathing on the weight axis, marginalia, velocity-scatter
    pull-quotes, canvas hairline plate, colophon with its own note panel. Built
    by ox-alpha (essay copy included); verified at five scroll depths via a CDP
-   scroll-screenshot rig (.tmp/scroll-shot.mjs).
+   scroll-screenshot rig (.tmp/scroll-shot.mjs). Replaced by Tender (item 10)
+   on 2026-09-29; the essay is in git history.
 8. **Moonfall easter egg — done, live.** The walkthrough's sun-gaze payoff is
    now a crashing moon (ox-alpha, two passes — first pass had the eye meshes
    mis-seated off the painted sockets, caught by the screenshot rig). Original
@@ -172,3 +173,15 @@ cuts to white.
    moonfall egg. All procedural (seeded canvas wood grain + plank face,
    per-letter jitter). ?signtest hook for screenshots; reviewer fixup — the
    hook's camera initially stood off the board's unlettered back.
+
+10. **Tender (2026-09-29).** Replaces the Broadsheet at the same address
+    (/lab/broadsheet/, so links and the UPDATED label keep working). A product
+    page for a coin, after the Jeton site on Mobbin: rose-to-coral gradient,
+    satin 3D discs, huge Switzer type, pill UI. Eighteen lathe coins in one
+    instanced mesh chase scroll-driven formations through under-damped springs:
+    one coin, a stack bent along a curve, a loop with a flywheel, a grid that
+    flips heads to tails in a wave, a tower they drop into. Heads and tails are
+    a shader branch on the object-space normal. Section colours are CSS behind a
+    transparent canvas; coins use PBR Neutral tone mapping, no bloom. Self-hosted
+    Switzer replaces the Broadsheet's Fontshare fonts. Check with
+    `node tools/shot.mjs <url>/lab/broadsheet/ <out> --frac=0,20,40,62,100`.

@@ -2,285 +2,160 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Attention Is a Material: a scroll-driven typographic broadsheet. An essay on the scarcest resource on the web, by Adam Roch." />
-    <meta name="theme-color" content="#f4f1ea" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Lab 05: Tender. A product page for a coin, paid for in scroll. Eighteen satin coins in one instanced mesh, choreographed by the scroll bar. By Adam Roch." />
+    <meta name="theme-color" content="#bf3459" />
+    <meta name="color-scheme" content="light" />
+    <title>Tender · Lab 05 · Adam Roch</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>Attention Is a Material · Lab 05 · Adam Roch</title>
     <script>
-      if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
-        document.documentElement.classList.add('bs-js');
+      document.documentElement.classList.add('js');
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('tn-reduced');
     </script>
+    <style>
+      html, body { margin: 0; background: #bf3459; }
+    </style>
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/Switzer-Variable.woff2" />
     <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/JetBrainsMono-Variable.woff2" />
     <link rel="stylesheet" href="/src/fonts.css" />
-    <link rel="preconnect" href="https://api.fontshare.com" />
-    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
-    <link
-      href="https://api.fontshare.com/v2/css?f[]=clash-display@1&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://api.fontshare.com/v2/css?f[]=sentient@400,401,500,700&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body>
-    <div class="crop crop-tl" aria-hidden="true"></div>
-    <div class="crop crop-tr" aria-hidden="true"></div>
-    <div class="crop crop-bl" aria-hidden="true"></div>
-    <div class="crop crop-br" aria-hidden="true"></div>
+    <canvas id="tn-gl" aria-hidden="true"></canvas>
 
-    <header class="masthead" id="top">
-      <div class="mast-inner">
-        <p class="mast-meta mono">
-          <span>Adam Roch &middot; The Lab</span>
-          <span class="mast-meta-mid">Broadsheet No. 05</span>
-          <span>Printed in the browser</span>
-        </p>
-
-        <p class="kicker mono">An essay in five sections on the web's scarcest resource</p>
-
-        <h1 class="mast-title">
-          <span class="mast-mask"><span class="mast-line disp">Attention</span></span>
-          <span class="mast-mask mast-mask-alt"><span class="mast-line alt">is a</span></span>
-          <span class="mast-mask"><span class="mast-line disp right">Material<span class="dot">.</span></span></span>
-        </h1>
-
-        <div class="mast-foot">
-          <p class="deck">
-            Every feed is a mining operation, and the ore is
-            <span class="redact"><span class="redact-word">your morning.</span><span class="redact-bar" aria-hidden="true"></span></span>
-            Five short sections on the scarcest material online, what it costs, and how to stop
-            paying it out by the scoop.
-          </p>
-          <p class="mast-hint mono">Scroll to declassify &darr;</p>
-        </div>
-      </div>
-    </header>
-
-    <main id="essay">
-      <section class="row" aria-labelledby="s1-h">
-        <aside class="marginalia mono">
-          <span class="marg-no">&sect; 01</span>
-          <span class="marg-slug">Scarcity</span>
-          <span class="marg-note">Same allotment for everyone</span>
-        </aside>
-        <div class="prose">
-          <h2 id="s1-h" data-reveal>A commodity with no warehouse</h2>
-          <p class="dropcap">
-            Gold is rare. Uranium is rarer. But both hold still: you can stockpile them, insure
-            them, steal them. Attention won't hold still. It arrives at roughly sixteen waking
-            hours a day, unbuffered, and whatever you fail to spend today is simply gone.
-          </p>
-          <p>
-            That makes it stranger than anything with a ticker symbol. It cannot be mined faster,
-            warehoused, or shipped to a market with higher prices. Everyone gets the same
-            allotment, and no logistics network on earth can move an hour of attention from someone
-            who squanders it to someone who needs it.
-          </p>
-          <p>Scarcity like that deserves respect. Instead, we built machines to strip-mine it.</p>
-        </div>
-      </section>
-
-      <hr class="hr" />
-
-      <section class="row" aria-labelledby="s2-h">
-        <aside class="marginalia mono">
-          <span class="marg-no">&sect; 02</span>
-          <span class="marg-slug">Extraction</span>
-          <span class="marg-note">Skinner, with push notifications</span>
-        </aside>
-        <div class="prose">
-          <h2 id="s2-h" data-reveal>The machinery of the take</h2>
-          <p>
-            The extraction equipment has names you know. Infinite scroll removes the stopping cue.
-            Autoplay removes the decision. Pull-to-refresh is a slot lever, and the variable-reward
-            schedule behind it predates the web by decades. B.&nbsp;F. Skinner ran the original
-            trials; he just didn't have push notifications.
-          </p>
-          <p>
-            None of this is subtle once you look. An ad-funded web is priced in attention, so every
-            incentive bends toward taking more of it: more pages per visit, more minutes per
-            session, more sessions per day. The metric was never what you got out of the internet
-            today. It is what it got out of you.
-          </p>
-        </div>
-      </section>
-
-      <figure class="pull">
-        <blockquote>
-          <p class="pull-text">The feed doesn't want your opinion. It wants your Tuesday.</p>
-        </blockquote>
-        <figcaption class="pull-cite mono">Overheard at a metrics review</figcaption>
-      </figure>
-
-      <hr class="hr" />
-
-      <section class="row" aria-labelledby="s3-h">
-        <aside class="marginalia mono">
-          <span class="marg-no">&sect; 03</span>
-          <span class="marg-slug">Compounding</span>
-          <span class="marg-note">Residue or evaporation</span>
-        </aside>
-        <div class="prose">
-          <h2 id="s3-h" data-reveal>Wherever it points, things grow</h2>
-          <p>
-            Here is where the mining metaphor breaks down, in our favor: attention is not only
-            consumed. Wherever you point it, things grow.
-          </p>
-          <p>
-            An hour in the feed evaporates. The same hour spent building, writing, or reading
-            something hard leaves residue: skill, memory, a half-formed idea that shows up
-            uninvited on Thursday. Invested attention compounds like interest. Harvested attention
-            depreciates like inventory.
-          </p>
-          <p>
-            So "is this app good?" is the wrong question. The right one: when I hand this my
-            evening, what does the evening become?
-          </p>
-        </div>
-      </section>
-
-      <figure class="plate" role="img" aria-label="A field of hairline rules that bends around the pointer as it moves">
-        <canvas id="plate-canvas"></canvas>
-        <span class="plate-stamp mono">Plate I</span>
-        <figcaption class="plate-caption mono">
-          <span>Hairline field under pointer pressure</span>
-          <span class="plate-caption-right">Move slowly, the rules are shy</span>
-        </figcaption>
-      </figure>
-
-      <section class="row" aria-labelledby="s4-h">
-        <aside class="marginalia mono">
-          <span class="marg-no">&sect; 04</span>
-          <span class="marg-slug">Craft</span>
-          <span class="marg-note">Endings are a feature</span>
-        </aside>
-        <div class="prose">
-          <h2 id="s4-h" data-reveal>Spend, don't harvest</h2>
-          <p>
-            Designers say <em>engagement</em> the way casinos say <em>time on floor</em>. The
-            honest word is spending. A page either spends the reader's attention on something worth
-            owning, or it harvests it for someone else's numbers.
-          </p>
-          <p>
-            So design like the reader paid at the door, because they did, in the one currency
-            that never refunds. Cut the autoplay. End the article. Let a finished page feel
-            finished; endings are a feature.
-          </p>
-          <p>
-            This page runs on the same bet: one column, no rail, no infinite anything. When you
-            reach the bottom, it lets you go.
-          </p>
-        </div>
-      </section>
-
-      <figure class="pull">
-        <blockquote>
-          <p class="pull-text">Design like the reader paid for this. They did.</p>
-        </blockquote>
-        <figcaption class="pull-cite mono">House style, effective immediately</figcaption>
-      </figure>
-
-      <hr class="hr" />
-
-      <section class="row" aria-labelledby="s5-h">
-        <aside class="marginalia mono">
-          <span class="marg-no">&sect; 05</span>
-          <span class="marg-slug">Ledger</span>
-          <span class="marg-note">Unexamined things are expensive</span>
-        </aside>
-        <div class="prose">
-          <h2 id="s5-h" data-reveal>Keep your own books</h2>
-          <p>
-            You cannot rebalance an economy overnight, but you can audit yourself. For one week,
-            write down where the hours actually went. Most people find the figures
-            <span class="redact"><span class="redact-word">embarrassing,</span><span class="redact-bar" aria-hidden="true"></span></span>
-            in the specific way unexamined things always are.
-          </p>
-          <p>
-            Then treat attention like the material it is: finite, priced, and yours. Spend it on
-            work that compounds, on people who notice, on rest that actually rests. The web will
-            happily offer a hundred ways to fritter it before breakfast.
-          </p>
-          <p>Let it keep its ore. You were never the mine.</p>
-        </div>
-      </section>
-
-      <footer class="colophon">
-        <div class="colo-rule" aria-hidden="true"></div>
-        <div class="colo-grid">
-          <div class="colo-col" data-reveal>
-            <h2 class="mono colo-head">Colophon</h2>
-            <dl class="credits">
-              <div class="credit">
-                <dt class="mono">Type</dt>
-                <dd>Clash Display Variable for the masthead and pull quotes. Sentient for the text. JetBrains Mono for the labels.</dd>
-              </div>
-              <div class="credit">
-                <dt class="mono">Inks</dt>
-                <dd>Paper #f4f1ea &middot; Ink #16130e &middot; Spot International Orange #ff4d00.</dd>
-              </div>
-              <div class="credit">
-                <dt class="mono">Press</dt>
-                <dd>GSAP ScrollTrigger + SplitText + Canvas 2D. No WebGL was harmed.</dd>
-              </div>
-              <div class="credit">
-                <dt class="mono">Edition</dt>
-                <dd>Broadsheet No. 05 of The Lab. Unlimited circulation, finite readers.</dd>
-              </div>
-            </dl>
+    <main class="tn" id="top" tabindex="-1">
+      <section class="tn-sec tn-hero" data-bg="rose" data-tone="dark" data-chapter="mint" aria-labelledby="tn-hero-title">
+        <div class="tn-frame">
+          <h1 class="tn-display" id="tn-hero-title"><span class="tn-line">Pay by</span> <span class="tn-line">scroll.</span></h1>
+          <div class="tn-side">
+            <p>No account, no card, no fees. Everything on this page costs a little scroll, and the coins move when you pay.</p>
+            <div class="tn-actions">
+              <a class="tn-btn tn-btn-solid" href="#unfurl">Start spending</a>
+              <button class="tn-btn tn-btn-line" type="button" data-open-note aria-controls="tn-note-panel">How it's built</button>
+            </div>
           </div>
-          <a class="home-link" href="/" data-reveal>&larr; Back to the lab</a>
+          <p class="tn-cue" aria-hidden="true"><span class="tn-cue-dot"></span>Scroll</p>
         </div>
-        <p class="colo-fine mono">
-          &copy; 2026 Adam Roch. Set and printed in the browser. The reader paid for this. They
-          did.
-        </p>
-      </footer>
+      </section>
+
+      <section class="tn-sec tn-pin tn-unfurl" data-bg="rose" id="unfurl" data-tone="dark" data-chapter="unfurl" aria-labelledby="tn-unfurl-title">
+        <div class="tn-sticky">
+          <div class="tn-frame">
+            <!-- the beats swap as the section scrolls; a screen reader gets all three, once, in order -->
+            <h2 class="tn-display tn-beats" id="tn-unfurl-title">
+              <span class="tn-sr">One coin. Eighteen. All yours.</span>
+              <span class="tn-beat" data-beat="0" aria-hidden="true">One coin.</span>
+              <span class="tn-beat" data-beat="1" aria-hidden="true">Eighteen.</span>
+              <span class="tn-beat" data-beat="2" aria-hidden="true">All yours.</span>
+            </h2>
+            <div class="tn-side tn-beats">
+              <p class="tn-sr">Minted when you arrived. Nothing was downloaded to make it, and nothing will be. Every flick pays one out. Scroll back and they fold up again. The page keeps exact change.</p>
+              <p class="tn-beat" data-beat="0" aria-hidden="true">Minted when you arrived. Nothing was downloaded to make it, and nothing will be.</p>
+              <p class="tn-beat" data-beat="1" aria-hidden="true">Every flick pays one out. Scroll back and they fold up again. The page keeps exact change.</p>
+              <p class="tn-beat" data-beat="2" aria-hidden="true"><span class="tn-if-fine">Point at one. Click it to flip it over.</span><span class="tn-if-coarse">Tap one to flip it over.</span></p>
+            </div>
+            <aside class="tn-card" aria-label="Your balance">
+              <p class="tn-card-head"><span class="tn-card-coin" aria-hidden="true"></span>Tender</p>
+              <dl class="tn-card-rows">
+                <div><dt>Balance</dt><dd>18 coins</dd></div>
+                <div><dt>Fees</dt><dd>0.00</dd></div>
+                <div><dt>Scrolled</dt><dd><span data-spent>0</span> px</dd></div>
+              </dl>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="tn-sec tn-pin tn-loop" data-bg="red" id="loop" data-tone="dark" data-chapter="loop" aria-labelledby="tn-loop-title">
+        <div class="tn-sticky">
+          <div class="tn-frame tn-center">
+            <h2 class="tn-display" id="tn-loop-title">No sign up.</h2>
+            <p class="tn-lede">Your trackpad already works. So do a mouse wheel, the space bar and a thumb. Scroll hard and the loop keeps spinning after you stop.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="tn-sec tn-pin tn-flip" data-bg="blush" id="flip" data-tone="light" data-chapter="flip" aria-labelledby="tn-flip-title">
+        <div class="tn-sticky">
+          <div class="tn-frame tn-top">
+            <h2 class="tn-display" id="tn-flip-title"><span class="tn-line">Heads,</span> <span class="tn-line">then tails.</span></h2>
+            <p class="tn-lede">Each coin flips as the page passes it. Scroll fast and they go together. Scroll slowly and you can hear each one land. You can't, there is no audio. You will anyway.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="tn-sec tn-stats" data-bg="blush" data-tone="light" data-chapter="flip" aria-label="What this page is made of">
+        <ul class="tn-stats-row">
+          <li><span class="tn-stat">18</span><span class="tn-stat-label">coins, minted on arrival</span></li>
+          <li><span class="tn-stat">1</span><span class="tn-stat-label">draw call for all of them</span></li>
+          <li><span class="tn-stat">0</span><span class="tn-stat-label">images, models or video</span></li>
+        </ul>
+      </section>
+
+      <section class="tn-sec tn-pin tn-end" data-bg="rose" id="stack" data-tone="dark" data-chapter="stack" aria-labelledby="tn-end-title">
+        <div class="tn-sticky">
+          <div class="tn-frame">
+            <h2 class="tn-display" id="tn-end-title"><span class="tn-line">Keep the</span> <span class="tn-line">change.</span></h2>
+            <div class="tn-side">
+              <p>Every coin comes back and lands in the stack. The only thing spent here was scroll, and you had plenty.</p>
+              <div class="tn-actions">
+                <a class="tn-btn tn-btn-solid" href="/lab/event-horizon/">Spend it somewhere else</a>
+                <a class="tn-btn tn-btn-line" href="#top" data-top>Back to the top</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
-    <div class="folio" aria-hidden="true">
-      <span class="folio-left mono">Attention is a material</span>
-      <span class="folio-track"><span class="folio-fill" id="folio-fill"></span></span>
-      <span class="folio-page mono" id="folio-page">Folio 01 / 09</span>
-    </div>
+    <nav class="tn-nav" aria-label="Chapters">
+      <a class="tn-nav-home" href="#top" data-top aria-label="Back to the top"><span class="tn-card-coin" aria-hidden="true"></span></a>
+      <a href="#unfurl" data-nav="unfurl">Unfurl</a>
+      <a href="#loop" data-nav="loop">Loop</a>
+      <a href="#flip" data-nav="flip">Flip</a>
+      <a href="#stack" data-nav="stack">Stack</a>
+      <span class="tn-nav-pill" aria-hidden="true"></span>
+    </nav>
 
-    <aside class="note-panel" id="bs-note-panel" aria-label="Design note: how this page is built" hidden>
-      <h2>How it's printed</h2>
+    <aside class="tn-note-panel" id="tn-note-panel" aria-label="Design note: how this page is built" hidden>
+      <h2>How it's minted</h2>
       <p>
-        This page is a love letter to flat: paper ground, black ink, one spot color, hairlines
-        everywhere. No WebGL, no gradients: the fidelity lives entirely in typesetting and motion
-        curves. The masthead breathes on Clash Display's weight axis (a variable font, wght
-        200&ndash;700), tweened through a proxy object into font-variation-settings so the ink
-        visibly swells as each line rises out of its mask. The rise waits for the font to arrive,
-        so the swell always happens in the real face.
+        One coin is a lathe: a flat face, a rounded rim and the other face, drawn as a 2D profile
+        and revolved 96 times. All eighteen are one instanced mesh, so the whole cast is one draw
+        call, plus one more for its shadow. Heads and tails are the same geometry; the shader picks
+        the colour from which way the face pointed before the coin was placed.
+      </p>
+      <pre><code>// heads or tails: the normal before instancing moved it
+vFace = objectNormal.y;
+float heads = smoothstep(-0.25, 0.25, vFace);
+diffuseColor.rgb *= mix(uTails, uHeads, heads);</code></pre>
+      <p>
+        The material is satin plastic with a clearcoat and a little sheen. It is lit by a small
+        studio built at load: a dim dome and five softboxes, blurred into an environment map, so
+        the glints that slide across a face as it turns are the softboxes, reflected. An area
+        light and a falloff toward it in the shader put a gradient across each face, because a
+        flat face under a distant light is one flat colour. One key light casts the soft shadows
+        coins lay on each other, and on the table under the grid and the floor under the stack,
+        which are invisible except where a shadow lands.
       </p>
       <p>
-        The redaction bars are absolutely positioned rectangles of ink, peeled away by a scrubbed
-        ScrollTrigger with transform-origin on the right. The pull quotes pin for 130% of the
-        viewport, then scatter letter-by-letter with scroll velocity: SplitText cuts them into
-        characters, each gets a random direction vector, and velocity drives how hard they fling
-        apart. Stop scrolling and they settle back into a readable sentence.
+        Each section is a formation: a stack bent along a curve, a loop, a grid, a tower. The
+        scroll position picks a formation and a place inside it, and every coin chases its own
+        target through a spring that is slightly under-damped. Scroll fast and the coins
+        overshoot and settle; scroll back and they unwind the same way.
       </p>
-      <pre><code>// velocity scatter: fast scrolls fling the type apart
-const kick = gsap.utils.clamp(-1, 1, self.getVelocity() / 1800);
-chars.forEach((c, i) =&gt; gsap.to(c, {
-  x: dir[i].x * kick * 96,
-  y: dir[i].y * kick * 60,
-  rotation: dir[i].r * kick,
-  duration: 0.55, ease: 'power3.out', overwrite: 'auto',
-}));</code></pre>
+      <pre><code>// one axis of one coin: a spring toward where the scroll puts it
+v += (k * (target - x) - c * v) * dt;
+x += v * dt;</code></pre>
       <p>
-        Plate I is Canvas 2D: about fifty vertical rules sampled at seventy-two points each,
-        displaced by a gaussian falloff around the eased pointer position, with every sixth rule
-        pulled in spot orange. It only runs its rAF loop while intersecting the viewport.
+        The section colours are CSS, drawn behind a transparent canvas, so they land exactly on
+        their hex values and the words stay sharp. The coins use Khronos PBR Neutral tone mapping,
+        which was made for product renders: base colours survive and only the highlights roll
+        off. There is no bloom, because product photography does not glow. Grain and dither are
+        added in the coin shader.
       </p>
       <p>
-        prefers-reduced-motion collapses everything to final state: bars hidden, type at rest
-        weight, plate rendered once, pins removed. On mobile the scenes unpin and the type rescales;
-        the essay reads fully either way. And because it is a broadsheet, it prints: the chrome and
-        pins step aside, every line is revealed, and each section gets its own sheet with crop marks.
+        With reduced motion on, nothing idles or springs. The coins still take their places for
+        each section, one frame per scroll.
       </p>
     </aside>
 

@@ -24,7 +24,8 @@ export const LABS: Lab[] = [
   { slug: 'sonic-terrain', index: 2, title: 'Sonic Terrain', href: '/lab/sonic-terrain/', description: 'An FFT terrain you can play. The browser as an instrument.', tags: 'WEB AUDIO · WIREFRAME', first: '#0b0b0d', light: [1.0, 0.62, 0.2], dust: 0.4, intensity: 1.0, radius: 1.0 },
   { slug: 'living-world', index: 3, title: 'Living World', href: '/lab/living-world/', description: 'Moss arches and a slow morning, grown from noise.', tags: 'THREE · INSTANCING', first: '#546943', light: [0.62, 0.72, 0.52], dust: 1.8, intensity: 0.8, radius: 1.1 },
   { slug: 'walkthrough', index: 4, title: 'Walkthrough', href: '/lab/walkthrough/', description: 'A dusk beach, first person, and a colossus half buried in it.', tags: 'POINTER LOCK · FIRST PERSON', first: '#6f6873', light: [0.83, 0.67, 0.5], dust: 1.3, intensity: 0.9, radius: 1.15 },
-  { slug: 'broadsheet', index: 5, title: 'Broadsheet', href: '/lab/broadsheet/', description: 'An essay set like a newspaper. Attention is a material.', tags: 'EDITORIAL · PRINT', first: '#f4f1ea', light: [0.96, 0.92, 0.84], dust: 0.3, intensity: 1.1, radius: 1.0 },
+  // the slug predates the page: Tender replaced the Broadsheet essay at the same address
+  { slug: 'broadsheet', index: 5, title: 'Tender', href: '/lab/broadsheet/', description: 'A product page for a coin. The only currency is scroll.', tags: 'PBR · SCROLL-DRIVEN', first: '#bf3459', light: [0.95, 0.42, 0.4], dust: 0.3, intensity: 1.1, radius: 1.0 },
 ];
 
 // 'UPDATED AUG 2026' per slug, computed at build time from git (vite.config.ts); '' when unknown.
